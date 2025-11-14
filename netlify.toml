@@ -1,0 +1,15 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# SPA routing: send all requests to index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[context.production.environment]
+  # Kakao OAuth redirect (production)
+  VITE_KAKAO_REDIRECT_URI = "https://buquetin.netlify.app/auth/kakao/callback"
+
+
