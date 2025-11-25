@@ -4,6 +4,7 @@ import Button from '../Button'
 import Modal from '../Modal'
 import UploadDropzone from '../UploadDropzone'
 import { addRecentlyViewed } from '../../utils/recentlyViewed'
+import { getTagChipClasses } from '../../utils/tagLabels'
 
 export default function BouquetDetail({ item, mode = 'others' }) {
   const navigate = useNavigate()
@@ -30,7 +31,7 @@ export default function BouquetDetail({ item, mode = 'others' }) {
             <h1 className="text-2xl font-extrabold">{item.title}</h1>
             <div className="mt-3 flex gap-2">
               {item.tags?.map((t, idx) => (
-                <span key={idx} className="inline-flex items-center px-2.5 py-1 rounded-full text-xs bg-pink-50 text-pink-600 border border-pink-200">
+                <span key={idx} className={getTagChipClasses(t)}>
                   {t}
                 </span>
               ))}

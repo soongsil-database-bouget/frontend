@@ -1,0 +1,748 @@
+openapi: 3.0.3
+info:
+  title: Wedding Bouquet Recommendation Service API
+  description: >
+    부케 추천, 가상 피팅(이미지 합성), 문의 기능을 제공하는 API 명세입니다.
+  version: 1.0.0
+
+servers:
+  - url: http://52.78.57.66:8080
+    description: 프로덕션 서버
+
+tags:
+  - name: Auth
+    description: 소셜 로그인 및 세션 기반 인증
+  - name: Users
+    description: 사용자 정보 조회
+  - name: Bouquets
+    description: 부케 정보 조회 (전체, 필터, 상세)
+  - name: Recommendations
+    description: 부케 추천 세션/아이템 및 추천 히스토리
+  - name: VirtualFittings
+    description: 이미지 합성(가상 피팅) 및 히스토리
+  - name: Inquiries
+    description: 문의 관련 API
+
+paths:
+  # =====================================
+  # 1. Auth
+  # =====================================
+  /auth/kakao/login:
+    post:
+      tags: [Auth]
+      summary: 카카오 로그인 & 회원가입
+      description: >
+        카카오 인가코드와 redirectUri를 받아 카카오 OAuth 로그인을 수행합니다.
+        로그인/회원가입 성공 시 HttpSession에 userId 등 기본 정보를 저장합니다.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KakaoLoginRequest'
+      responses:
+        '200':
+          description: 로그인 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KakaoLoginResponse'
+        '400':
+          description: authorizationCode 또는 redirectUri 누락
+        '500':
+          description: 서버 오류
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: 로그아웃
+      description: 현재 세션을 무효화합니다.
+      responses:
+        '204':
+          description: 로그아웃 성공 (본문 없음)
+
+  # =====================================
+  # 2. Users
+  # =====================================
+  /users/me:
+    get:
+      tags: [Users]
+      summary: 내 정보 조회
+      description: >
+        현재 로그인한 사용자의 기본 정보와 세션에 저장된 프로필 이미지를 조회합니다.
+        로그인하지 않은 상태에서는 401을 반환합니다.
+      responses:
+        '200':
+          description: 내 정보 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserMeResponse'
+        '401':
+          description: 로그인 필요
+
+  # =====================================
+  # 3. Bouquets
+  # =====================================
+  /bouquets:
+    get:
+      tags: [Bouquets]
+      summary: 부케 리스트 조회 (전체 / 필터)
+      description: >
+        전체 부케 리스트를 조회하거나, 시즌/분위기/사용 용도 기준으로 필터링하여 조회합니다.
+        page는 1부터 시작하며, 응답에는 각 부케별 카테고리(categories)가 포함됩니다.
+      parameters:
+        - name: season
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/Season'
+          description: "필터 - 시즌"
+        - name: bouquet_atmosphere
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/BouquetAtmosphere'
+          description: "필터 - 부케 분위기"
+        - name: usage
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/Usage'
+          description: "필터 - 사용 용도"
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: "페이지 번호 (1부터 시작)"
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 20
+          description: "페이지 크기"
+      responses:
+        '200':
+          description: 부케 리스트 반환
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BouquetListResponse'
+
+  /bouquets/{bouquetId}:
+    get:
+      tags: [Bouquets]
+      summary: 부케 상세 정보 조회
+      description: >
+        특정 부케의 상세 정보(가격, 설명, 이미지, 카테고리/속성, 스토어 등)를 조회합니다.
+      parameters:
+        - name: bouquetId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+          description: "부케 ID"
+      responses:
+        '200':
+          description: 부케 상세 정보
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BouquetDetailResponse'
+        '404':
+          description: 해당 ID의 부케를 찾을 수 없음
+
+  # =====================================
+  # 4. Recommendations
+  # =====================================
+  /recommendations:
+    post:
+      tags: [Recommendations]
+      summary: 부케 추천 세션 생성 (알고리즘)
+      description: >
+        사용자의 입력값(시즌, 드레스 무드/실루엣, 예식 색감, 부케 분위기)을 기반으로
+        추천 세션을 생성하고, 관련 아이템(추천된 부케들)을 저장/반환합니다.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecommendationSessionRequest'
+      responses:
+        '201':
+          description: 추천 세션 생성 완료
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationSessionResponse'
+        '400':
+          description: 요청 값 유효성 실패
+    get:
+      tags: [Recommendations]
+      summary: 내 추천 히스토리 조회
+      description: >
+        현재 로그인한 사용자가 지금까지 받은 부케 추천 세션 리스트를 조회합니다.
+        각 세션에는 추천된 부케 아이템 배열(items)이 포함됩니다.
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: "페이지 번호 (1부터 시작)"
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 20
+          description: "페이지 크기"
+      responses:
+        '200':
+          description: 추천 세션 리스트
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationSessionListResponse'
+        '401':
+          description: 로그인 필요
+
+  /recommendations/{sessionId}:
+    get:
+      tags: [Recommendations]
+      summary: 추천 세션 상세 조회
+      description: 특정 추천 세션의 입력 옵션과 추천된 부케 아이템 전체를 조회합니다.
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+          description: "추천 세션 ID"
+      responses:
+        '200':
+          description: 추천 세션 상세
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationSessionResponse'
+        '404':
+          description: 해당 ID의 추천 세션을 찾을 수 없음
+
+  # =====================================
+  # 5. Virtual Fittings
+  # =====================================
+  /virtual-fittings:
+    post:
+      tags: [VirtualFittings]
+      summary: 가상 피팅 요청 (이미지 합성)
+      description: >
+        사용자 원본 이미지와 선택한 부케를 기반으로 합성 이미지를 생성하고,
+        ApplyImage 엔티티로 저장합니다.
+        userId는 세션에서 가져온다고 가정합니다.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                bouquet_id:
+                  type: integer
+                  format: int64
+                  description: "합성할 부케 ID"
+                session_id:
+                  type: integer
+                  format: int64
+                  nullable: true
+                  description: "관련 추천 세션 ID (선택)"
+                user_image:
+                  type: string
+                  format: binary
+                  description: "사용자 원본 이미지 파일"
+              required:
+                - bouquet_id
+                - user_image
+      responses:
+        '200':
+          description: 합성 완료된 결과 반환
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplyImageResponse'
+        '401':
+          description: 로그인 필요
+        '500':
+          description: 합성 처리 중 오류
+    get:
+      tags: [VirtualFittings]
+      summary: 내 가상 피팅 히스토리 조회
+      description: >
+        현재 로그인한 사용자가 시도했던 가상 피팅(이미지 합성) 히스토리를 페이지네이션으로 조회합니다.
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: "페이지 번호 (1부터 시작)"
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 20
+          description: "페이지 크기"
+      responses:
+        '200':
+          description: 가상 피팅 히스토리 리스트
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplyImageListResponse'
+        '401':
+          description: 로그인 필요
+
+  /virtual-fittings/{id}:
+    get:
+      tags: [VirtualFittings]
+      summary: 가상 피팅 단건 조회
+      description: 저장된 ApplyImage 한 건(합성 결과)의 상세 정보를 조회합니다.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+          description: "적용 이미지 ID"
+      responses:
+        '200':
+          description: 가상 피팅 상세
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplyImageResponse'
+        '404':
+          description: 해당 ID의 ApplyImage를 찾을 수 없음
+
+  # =====================================
+  # 6. Inquiries
+  # =====================================
+  /inquiries:
+    post:
+      tags: [Inquiries]
+      summary: 문의 등록
+      description: 현재 로그인한 사용자의 문의를 등록합니다.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InquiryCreateRequest'
+      responses:
+        '201':
+          description: 문의 등록 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InquiryResponse'
+        '401':
+          description: 로그인 필요
+
+  /inquiries/my:
+    get:
+      tags: [Inquiries]
+      summary: 내 문의 리스트 조회
+      description: 현재 로그인한 사용자가 작성한 문의 목록을 페이지네이션으로 조회합니다.
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: "페이지 번호 (1부터 시작)"
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 20
+          description: "페이지 크기"
+      responses:
+        '200':
+          description: 내 문의 리스트
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InquiryListResponse'
+        '401':
+          description: 로그인 필요
+
+components:
+  schemas:
+    # ==========================
+    # Auth / User
+    # ==========================
+    KakaoLoginRequest:
+      type: object
+      properties:
+        authorizationCode:
+          type: string
+          description: "카카오 인가코드"
+        redirectUri:
+          type: string
+          description: "카카오에 등록한 redirect_uri"
+      required:
+        - authorizationCode
+        - redirectUri
+
+    KakaoLoginResponse:
+      type: object
+      properties:
+        userId:
+          type: integer
+          format: int64
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        profileImageUrl:
+          type: string
+          nullable: true
+
+    UserMeResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        profileImageUrl:
+          type: string
+          nullable: true
+
+    # ==========================
+    # Bouquets
+    # ==========================
+    BouquetCategoryResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        bouquetId:
+          type: integer
+          format: int64
+        season:
+          $ref: '#/components/schemas/Season'
+        dressMood:
+          $ref: '#/components/schemas/DressMood'
+        dressSilhouette:
+          $ref: '#/components/schemas/DressSilhouette'
+        weddingColor:
+          $ref: '#/components/schemas/WeddingColor'
+        bouquetAtmosphere:
+          $ref: '#/components/schemas/BouquetAtmosphere'
+        usage:
+          $ref: '#/components/schemas/Usage'
+
+    BouquetResponse:
+      type: object
+      description: 부케 기본 정보 + 카테고리 목록
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        price:
+          type: integer
+        reason:
+          type: string
+          nullable: true
+          description: "추천/선정 이유 또는 설명 요약"
+        description:
+          type: string
+          nullable: true
+        imageUrl:
+          type: string
+          nullable: true
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/BouquetCategoryResponse'
+
+    BouquetListResponse:
+      type: object
+      properties:
+        bouquets:
+          type: array
+          items:
+            $ref: '#/components/schemas/BouquetResponse'
+        totalCount:
+          type: integer
+          format: int64
+
+    StoreResponse:
+      type: object
+      description: 부케를 판매/제작하는 스토어 정보 (부케당 1개)
+      properties:
+        id:
+          type: integer
+          format: int64
+        bouquetId:
+          type: integer
+          format: int64
+        storeName:
+          type: string
+        storeUrl:
+          type: string
+          nullable: true
+        instagramId:
+          type: string
+          nullable: true
+
+    BouquetDetailResponse:
+      type: object
+      description: 부케 상세 정보 (카테고리/스토어 포함)
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        price:
+          type: integer
+        reason:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        imageUrl:
+          type: string
+          nullable: true
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/BouquetCategoryResponse'
+        store:
+          $ref: '#/components/schemas/StoreResponse'
+
+    # ==========================
+    # Recommendations
+    # ==========================
+    RecommendationSessionRequest:
+      type: object
+      description: 추천 세션 생성 요청 옵션
+      properties:
+        season:
+          $ref: '#/components/schemas/Season'
+        dressMood:
+          $ref: '#/components/schemas/DressMood'
+        dressSilhouette:
+          $ref: '#/components/schemas/DressSilhouette'
+        weddingColor:
+          $ref: '#/components/schemas/WeddingColor'
+        bouquetAtmosphere:
+          $ref: '#/components/schemas/BouquetAtmosphere'
+      required:
+        - season
+        - dressMood
+        - dressSilhouette
+        - weddingColor
+        - bouquetAtmosphere
+
+    RecommendationItemResponse:
+      type: object
+      description: 추천된 개별 부케 아이템
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: "recommendation_items.id"
+        bouquetId:
+          type: integer
+          format: int64
+          description: "부케 ID"
+        bouquet:
+          $ref: '#/components/schemas/BouquetResponse'
+
+    RecommendationSessionResponse:
+      type: object
+      description: 추천 세션(입력 옵션 + 추천 아이템들)
+      properties:
+        id:
+          type: integer
+          format: int64
+        userId:
+          type: integer
+          format: int64
+        season:
+          $ref: '#/components/schemas/Season'
+        dressMood:
+          $ref: '#/components/schemas/DressMood'
+        dressSilhouette:
+          $ref: '#/components/schemas/DressSilhouette'
+        weddingColor:
+          $ref: '#/components/schemas/WeddingColor'
+        bouquetAtmosphere:
+          $ref: '#/components/schemas/BouquetAtmosphere'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecommendationItemResponse'
+
+    RecommendationSessionListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecommendationSessionResponse'
+        totalCount:
+          type: integer
+          format: int64
+
+    # ==========================
+    # Virtual Fittings (ApplyImage)
+    # ==========================
+    ApplyImageResponse:
+      type: object
+      description: 합성 결과 정보
+      properties:
+        id:
+          type: integer
+          format: int64
+        userId:
+          type: integer
+          format: int64
+        bouquetId:
+          type: integer
+          format: int64
+        sessionId:
+          type: integer
+          format: int64
+          nullable: true
+        srcImageUrl:
+          type: string
+          description: "원본 사용자 이미지 URL"
+        genImageUrl:
+          type: string
+          description: "합성 결과 이미지 URL"
+        status:
+          $ref: '#/components/schemas/ApplyStatus'
+        createdAt:
+          type: string
+          format: date-time
+        bouquet:
+          $ref: '#/components/schemas/BouquetResponse'
+
+    ApplyImageListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApplyImageResponse'
+        totalCount:
+          type: integer
+          format: int64
+
+    # ==========================
+    # Inquiries
+    # ==========================
+    InquiryCreateRequest:
+      type: object
+      properties:
+        content:
+          type: string
+          description: "문의 내용"
+      required:
+        - content
+
+    InquiryResponse:
+      type: object
+      description: 문의 단건 응답
+      properties:
+        id:
+          type: integer
+          format: int64
+        userId:
+          type: integer
+          format: int64
+        content:
+          type: string
+        status:
+          $ref: '#/components/schemas/InquiryStatus'
+        createdAt:
+          type: string
+          format: date-time
+
+    InquiryListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/InquiryResponse'
+        totalCount:
+          type: integer
+          format: int64
+
+    # ==========================
+    # ENUMS
+    # ==========================
+    Season:
+      type: string
+      enum: [SPRING, SUMMER, FALL, WINTER]
+
+    DressMood:
+      type: string
+      enum: [SIMPLE, LACE, BOHEMIAN, LUXURY]
+
+    DressSilhouette:
+      type: string
+      enum: [A_LINE, BALL_GOWN, MERMAID, SHEATH]
+
+    WeddingColor:
+      type: string
+      enum: [NEUTRAL, PASTEL, CLASSIC, VIVID]
+
+    BouquetAtmosphere:
+      type: string
+      enum: [ROMANTIC_GARDEN, MODERN_MINIMAL, NATURAL_BOHEMIAN, CLASSIC_ELEGANCE]
+
+    Usage:
+      type: string
+      enum: [WEDDING_PHOTO, BRIDAL_ROOM, WEDDING_CEREMONY]
+
+    ApplyStatus:
+      type: string
+      enum: [PENDING, DONE, FAILED]
+
+    InquiryStatus:
+      type: string
+      enum: [NEW, READ, DONE]

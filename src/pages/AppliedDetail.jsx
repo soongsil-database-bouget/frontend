@@ -1,27 +1,52 @@
-import React, { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useEffect, useMemo, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import Button from '../components/Button'
 import BackBar from '../components/BackBar'
 import Modal from '../components/Modal'
 import UploadDropzone from '../components/UploadDropzone'
+import { getVirtualFittingDetail } from '../api/virtualFittings'
+import { extractCategoryTags, getTagChipClasses } from '../utils/tagLabels'
 
 export default function AppliedDetail() {
   const navigate = useNavigate()
+  const { id } = useParams()
   const [open, setOpen] = useState(false)
   const [userImage, setUserImage] = useState(null)
+  const [detail, setDetail] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
-  // Mock: 결과 이미지(합성)와 사용한 부케 이미지
-  const item = useMemo(() => ({
-    id: 11,
-    title: '화이트 튤립 with 인물',
-    resultImageUrl: 'https://picsum.photos/seed/applied1/1200/900',
-    bouquetImageUrl: 'https://images.unsplash.com/photo-1470093851219-69951fcbb533?q=80&w=1600&auto=format&fit=crop',
-    bouquetTitle: '화이트 튤립 부케',
-    bouquetDescription: '심플하고 세련된 화이트 튤립 부케',
-    vendorName: '트로피컬 가든',
-    tags: ['미니멀', '화이트'],
-    appliedAt: '2025-11-10 14:23'
-  }), [])
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        setLoading(true)
+        const res = await getVirtualFittingDetail(id)
+        if (!cancelled) setDetail(res)
+      } catch (e) {
+        if (!cancelled) setError(e)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [id])
+
+  const item = useMemo(() => {
+    if (!detail) return null
+    const b = detail.bouquet || {}
+    return {
+      id: detail.id,
+      title: b.name || `적용 #${detail.id}`,
+      resultImageUrl: detail.genImageUrl || detail.srcImageUrl,
+      bouquetImageUrl: b.imageUrl,
+      bouquetTitle: b.name,
+      bouquetDescription: b.description,
+      vendorName: b.stores?.[0]?.storeName,
+      tags: extractCategoryTags(b.categories),
+      appliedAt: detail.createdAt,
+    }
+  }, [detail])
 
   const handleShare = async () => {
     try {
@@ -43,89 +68,153 @@ export default function AppliedDetail() {
   return (
     <>
       <BackBar title="적용 상세" />
-      <div className="max-w-screen-2xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* 프리뷰: 상단(작은 부케 정보 카드) + 하단(큰 합성 결과) */}
-          <div className="space-y-4">
-            {/* 상단: 가로형 작은 부케 정보 카드 */}
-            <div className="rounded-xl border border-gray-200 bg-white p-3 max-w-xl">
-              <div className="flex items-center gap-3">
-                <div className="w-24 h-16 md:w-28 md:h-20 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0">
-                  <img className="w-full h-full object-cover" src={item.bouquetImageUrl} alt={item.bouquetTitle} />
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-pink-50/30">
+        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+          {loading && (
+            <div className="py-20 text-center">
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-pink-500 border-t-transparent"></div>
+              <p className="mt-4 text-gray-600">불러오는 중…</p>
+            </div>
+          )}
+          {error && (
+            <div className="py-20 text-center">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mb-4">
+                <span className="text-2xl">⚠️</span>
+              </div>
+              <p className="text-red-600 text-lg font-medium">상세를 불러오지 못했습니다.</p>
+            </div>
+          )}
+          {!loading && !error && item && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+              {/* 왼쪽: 합성 결과 이미지 (강조) */}
+              <div className="lg:col-span-2">
+                <div className="relative rounded-3xl overflow-hidden bg-white shadow-2xl border border-gray-100">
+                  <div className="aspect-[4/3] lg:aspect-auto">
+                    <img
+                      className="w-full h-full object-contain lg:object-cover"
+                      src={item.resultImageUrl}
+                      alt={`${item.title} 합성 결과`}
+                    />
+                  </div>
+                  {/* 이미지 하단 그라데이션 오버레이 */}
+                  <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/40 via-black/10 to-transparent pointer-events-none" />
                 </div>
-                <div className="min-w-0">
-                  <div className="text-sm font-bold text-gray-900 truncate">{item.bouquetTitle}</div>
-                  <div className="text-xs text-gray-600 mt-0.5 break-words">{item.bouquetDescription}</div>
-                  <div className="text-xs text-gray-400 mt-1">{item.vendorName}</div>
+              </div>
+
+              {/* 오른쪽: 부케 정보 및 액션 */}
+              <div className="space-y-6">
+                {/* 부케 정보 카드 */}
+                <div className="rounded-2xl bg-white border border-gray-200 shadow-lg p-5">
+                  <div className="mb-4">
+                    <h2 className="text-lg font-extrabold text-gray-900 mb-1">사용한 부케</h2>
+                    <div className="w-12 h-0.5 bg-gradient-to-r from-pink-500 to-purple-500 rounded-full"></div>
+                  </div>
+                  
+                  {/* 모바일: 가로 레이아웃, 데스크톱: 세로 레이아웃 */}
+                  <div className="flex gap-4 lg:flex-col lg:gap-4">
+                    {/* 부케 이미지 */}
+                    <div className="flex-shrink-0 lg:w-full">
+                      <div className="w-24 h-24 sm:w-32 sm:h-32 lg:w-full lg:h-48 rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
+                        <img
+                          className="w-full h-full object-cover"
+                          src={item.bouquetImageUrl}
+                          alt={item.bouquetTitle}
+                        />
+                      </div>
+                    </div>
+
+                    {/* 부케 정보 */}
+                    <div className="flex-1 min-w-0 lg:flex-none">
+                      <h3 className="text-base font-bold text-gray-900 mb-1 lg:truncate">{item.bouquetTitle}</h3>
+                      {item.bouquetDescription && (
+                        <p className="text-sm text-gray-600 leading-relaxed mb-2 lg:mb-3 line-clamp-2 lg:line-clamp-none">{item.bouquetDescription}</p>
+                      )}
+                      {item.vendorName && (
+                        <p className="text-xs text-gray-500 mb-2 lg:mb-3 truncate">📍 {item.vendorName}</p>
+                      )}
+                      {item.tags && item.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {item.tags.map((t, idx) => (
+                            <span
+                              key={idx}
+                              className={getTagChipClasses(t)}
+                            >
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 액션 버튼들 */}
+                <div className="space-y-3">
+                  <Button
+                    className="w-full h-12 px-5 text-base font-semibold shadow-lg hover:shadow-xl transition-all"
+                    onClick={() => setOpen(true)}
+                  >
+                    다시 적용하기
+                  </Button>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button
+                      variant="outline"
+                      className="h-11 px-4 font-semibold"
+                      onClick={handleShare}
+                    >
+                      공유하기
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="h-11 px-4 font-semibold text-red-600 border-red-300 hover:bg-red-50"
+                      onClick={handleDelete}
+                    >
+                      삭제
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
-            {/* 하단: 큰 합성 결과 */}
-            <div className="rounded-2xl overflow-hidden border border-gray-200 bg-gray-50">
-              <div className="aspect-[4/3]">
-                <img className="w-full h-full object-cover" src={item.resultImageUrl} alt={`${item.title} 합성 결과`} />
-              </div>
-            </div>
-          </div>
-
-          {/* 정보/액션 */}
-          <div>
-            <h1 className="text-2xl font-extrabold">{item.title}</h1>
-            <div className="mt-1 text-sm text-gray-500">적용 일시: {item.appliedAt}</div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {item.tags.map((t, idx) => (
-                <span key={idx} className="inline-flex items-center px-2.5 py-1 rounded-full text-xs bg-pink-50 text-pink-600 border border-pink-200">
-                  {t}
-                </span>
-              ))}
-            </div>
-
-            {/* 위치 토글 제거됨 */}
-
-            {/* 핵심 액션 */}
-            <div className="mt-6 flex flex-wrap gap-2">
-            <Button className="h-11 px-5" onClick={() => setOpen(true)}>다시 적용</Button>
-            <Button variant="outline" className="h-11 px-5" onClick={handleShare}>공유하기</Button>
-              <Button variant="outline" className="h-11 px-5" onClick={handleDelete}>삭제</Button>
-            </div>
-          </div>
+          )}
         </div>
       </div>
 
       {/* 재적용 모달 (다른 상세페이지와 동일 UX) */}
       <Modal open={open} onClose={() => setOpen(false)}>
-        <div className="p-5">
-          <div className="flex items-center gap-3">
-            <div className="flex-1 rounded-xl border border-gray-200 overflow-hidden bg-gray-50">
-              <img src={item.bouquetImageUrl} alt={item.bouquetTitle || '사용 부케'} className="w-full h-40 object-cover" />
+        {item && (
+          <div className="p-5">
+            <div className="flex items-center gap-3">
+              <div className="flex-1 rounded-xl border border-gray-200 overflow-hidden bg-gray-50">
+                <img src={item.bouquetImageUrl} alt={item.bouquetTitle || '사용 부케'} className="w-full h-40 object-cover" />
+              </div>
+              <div className="text-2xl text-gray-400">+</div>
+              <div className="flex-1 rounded-xl border border-dashed border-gray-300 bg-gray-50 grid place-items-center h-40 overflow-hidden">
+                {userImage ? (
+                  <img src={userImage} alt="내 사진" className="w-full h-full object-cover rounded-lg" />
+                ) : (
+                  <div className="text-gray-400 text-sm">내 사진</div>
+                )}
+              </div>
             </div>
-            <div className="text-2xl text-gray-400">+</div>
-            <div className="flex-1 rounded-xl border border-dashed border-gray-300 bg-gray-50 grid place-items-center h-40 overflow-hidden">
-              {userImage ? (
-                <img src={userImage} alt="내 사진" className="w-full h-full object-cover rounded-lg" />
-              ) : (
-                <div className="text-gray-400 text-sm">내 사진</div>
-              )}
+
+            <div className="mt-5">
+              <UploadDropzone onFileSelected={(dataUrl) => setUserImage(dataUrl)} />
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <Button variant="outline" className="h-10 px-4" onClick={() => setOpen(false)}>닫기</Button>
+              <Button
+                className="h-10 px-5 disabled:opacity-50"
+                disabled={!userImage}
+                onClick={() => {
+                  navigate('/apply/result', { state: { userImage, bouquetImage: item.bouquetImageUrl } })
+                }}
+              >
+                적용하기
+              </Button>
             </div>
           </div>
-
-          <div className="mt-5">
-            <UploadDropzone onFileSelected={(dataUrl) => setUserImage(dataUrl)} />
-          </div>
-
-          <div className="mt-5 flex justify-end gap-2">
-            <Button variant="outline" className="h-10 px-4" onClick={() => setOpen(false)}>닫기</Button>
-            <Button
-              className="h-10 px-5 disabled:opacity-50"
-              disabled={!userImage}
-              onClick={() => {
-                navigate('/apply/result', { state: { userImage, bouquetImage: item.bouquetImageUrl } })
-              }}
-            >
-              적용하기
-            </Button>
-          </div>
-        </div>
+        )}
       </Modal>
     </>
   )
