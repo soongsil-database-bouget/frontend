@@ -1,0 +1,1514 @@
+openapi: 3.0.3
+info:
+  title: Wedding Bouquet Recommendation Service API
+  description: >
+    부케 추천, 가상 피팅(이미지 합성), 커뮤니티/문의 기능을 제공하는 백엔드 API 명세입니다.
+    이 스펙은 실제 Spring Boot 컨트롤러 코드(AuthController, UserController, BouquetsController,
+    RecommendationController, ApplyImageController, InquiryController)를 기준으로 작성되었습니다.
+  version: 1.0.0
+
+servers:
+  - url: http://52.78.57.66:8080
+    description: Production server
+
+tags:
+  - name: Auth
+    description: 소셜 로그인 및 인증
+  - name: Users
+    description: 사용자 정보 조회 (마이페이지)
+  - name: Bouquets
+    description: 부케 정보 조회 (전체, 필터, 상세)
+  - name: Recommendations
+    description: 부케 추천 세션/아이템 및 추천 히스토리
+  - name: VirtualFittings
+    description: 이미지 합성(가상 피팅) 및 히스토리 관련 API
+  - name: Inquiries
+    description: 문의 관련 API
+
+paths:
+  # ==============================
+  # 1. Auth & User
+  # ==============================
+  /auth/kakao/login:
+    post:
+      tags: [Auth]
+      summary: 카카오 로그인 & 회원가입
+      description: >
+        카카오 인가코드와 redirectUri를 이용해 로그인/회원가입을 수행합니다.
+        로그인 성공 시 HttpSession에 userId, 이메일, 이름, 프로필 이미지 URL 등이 저장됩니다.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KakaoLoginRequest'
+      responses:
+        '200':
+          description: 로그인 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KakaoLoginResponse'
+        '400':
+          description: authorizationCode 또는 redirectUri 누락
+        '500':
+          description: 서버 에러
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: 로그아웃
+      description: 현재 HttpSession을 무효화합니다.
+      responses:
+        '204':
+          description: 로그아웃 성공 (내용 없음)
+
+  /users/me:
+    get:
+      tags: [Users]
+      summary: 내 정보 조회
+      description: >
+        현재 로그인한 사용자의 기본 정보(id, email, name, profileImageUrl)를 조회합니다.
+        세션에 저장된 userId, profileImageUrl을 사용합니다.
+      responses:
+        '200':
+          description: 내 정보 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserMeResponse'
+        '401':
+          description: 로그인 필요 (세션에 userId 없음)
+
+  # ==============================
+  # 2. Bouquets
+  # ==============================
+  /bouquets:
+    get:
+      tags: [Bouquets]
+      summary: 부케 리스트 조회 (전체 / 필터)
+      description: >
+        전체 부케 리스트를 조회하거나, 시즌(season), 부케 분위기(bouquet_atmosphere), 사용 용도(usage)에 따라 필터링하여 조회합니다.
+        page는 1부터 시작하는 값으로 받되, 내부적으로는 0-based 페이지로 변환합니다.
+      parameters:
+        - name: season
+          in: query
+          required: false
+          description: 필터 - 시즌
+          schema:
+            $ref: '#/components/schemas/Season'
+        - name: dress_mood
+          in: query
+          required: false
+          description: 필터 - 드레스 무드
+          schema:
+            $ref: '#/components/schemas/DressMood'
+        - name: wedding_color
+          in: query
+          required: false
+          description: 필터 - 전체 웨딩 색감
+          schema:
+            $ref: '#/components/schemas/WeddingColor'
+        - name: bouquet_atmosphere
+          in: query
+          required: false
+          description: 필터 - 부케 분위기
+          schema:
+            $ref: '#/components/schemas/BouquetAtmosphere'
+        - name: usage
+          in: query
+          required: false
+          description: 필터 - 사용 용도
+          schema:
+            $ref: '#/components/schemas/Usage'
+        - name: page
+          in: query
+          required: false
+          description: 페이지 번호 (1부터 시작)
+          schema:
+            type: integer
+            default: 1
+          example: 1
+        - name: size
+          in: query
+          required: false
+          description: 페이지 크기
+          schema:
+            type: integer
+            default: 20
+          example: 20
+      responses:
+        '200':
+          description: 부케 리스트 반환
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BouquetListResponse'
+
+  /bouquets/{bouquetId}:
+    get:
+      tags: [Bouquets]
+      summary: 부케 상세 정보 조회
+      description: 특정 부케의 상세 정보(가격, 설명, 이미지, 카테고리/속성, 스토어 등)를 조회합니다.
+      parameters:
+        - name: bouquetId
+          in: path
+          required: true
+          description: 부케 ID
+          schema:
+            type: integer
+            format: int64
+          example: 1
+      responses:
+        '200':
+          description: 부케 상세 정보
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BouquetDetailResponse'
+        '404':
+          description: 부케를 찾을 수 없음
+
+  # ==============================
+  # 3. Recommendations
+  # ==============================
+  /recommendations:
+    post:
+      tags: [Recommendations]
+      summary: 부케 추천 세션 생성 (알고리즘)
+      description: >
+        사용자의 입력값(시즌, 드레스 무드/실루엣, 예식 색감, 부케 분위기 등)을 기반으로
+        추천 세션을 생성하고 관련 아이템(추천된 부케 3개)을 저장/반환합니다.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecommendationSessionRequest'
+      responses:
+        '201':
+          description: 추천 세션 생성 완료
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationSessionResponse'
+        '400':
+          description: 잘못된 요청
+
+    get:
+      tags: [Recommendations]
+      summary: 내 추천 히스토리 조회
+      description: >
+        현재 로그인한 사용자가 지금까지 받은 부케 추천 세션 리스트를 조회합니다.
+        page는 1부터 시작하는 값으로 받되, 내부에서 0-based 페이지로 변환합니다.
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: 페이지 번호 (1부터 시작)
+          schema:
+            type: integer
+            default: 1
+          example: 1
+        - name: size
+          in: query
+          required: false
+          description: 페이지 크기
+          schema:
+            type: integer
+            default: 20
+          example: 20
+      responses:
+        '200':
+          description: 추천 세션 리스트
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationSessionListResponse'
+
+  /recommendations/{sessionId}:
+    get:
+      tags: [Recommendations]
+      summary: 추천 세션 상세 조회
+      description: 특정 추천 세션의 입력 옵션과 추천된 부케 아이템 전체를 조회합니다.
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          description: 추천 세션 ID
+          schema:
+            type: integer
+            format: int64
+          example: 1
+      responses:
+        '200':
+          description: 추천 세션 상세
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationSessionResponse'
+        '404':
+          description: 추천 세션을 찾을 수 없음
+
+  # ==============================
+  # 4. Virtual Fittings (ApplyImage)
+  # ==============================
+  /virtual-fittings:
+    post:
+      tags: [VirtualFittings]
+      summary: 가상 피팅 요청 (이미지 합성)
+      description: >
+        사용자 원본 이미지(user_image)와 선택한 부케(bouquet_id)를 기반으로 합성 이미지를 생성하고,
+        ApplyImage로 저장합니다. session_id는 선택적으로, 어떤 추천 세션에서 온 것인지 연결할 때 사용합니다.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                bouquet_id:
+                  type: integer
+                  format: int64
+                  description: 합성할 부케 ID
+                  example: 1
+                session_id:
+                  type: integer
+                  format: int64
+                  nullable: true
+                  description: 관련 추천 세션 ID (선택)
+                  example: 10
+                user_image:
+                  type: string
+                  format: binary
+                  description: 사용자 원본 이미지 파일
+              required:
+                - bouquet_id
+                - user_image
+      responses:
+        '200':
+          description: 합성 완료된 ApplyImage 정보 반환
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplyImageResponse'
+        '401':
+          description: 로그인 필요 (세션에 userId 없음)
+        '400':
+          description: 잘못된 요청
+
+    get:
+      tags: [VirtualFittings]
+      summary: 내 가상 피팅 히스토리 조회
+      description: >
+        현재 로그인한 사용자가 시도했던 가상 피팅(이미지 합성) 히스토리를 조회합니다.
+        page는 1부터 시작하는 값으로 받되, 내부적으로는 0-based 페이지로 변환합니다.
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: 페이지 번호 (1부터 시작)
+          schema:
+            type: integer
+            default: 1
+          example: 1
+        - name: size
+          in: query
+          required: false
+          description: 페이지 크기
+          schema:
+            type: integer
+            default: 20
+          example: 20
+      responses:
+        '200':
+          description: 가상 피팅 히스토리 리스트
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplyImageListResponse'
+        '401':
+          description: 로그인 필요 (세션에 userId 없음)
+
+  /virtual-fittings/{id}:
+    get:
+      tags: [VirtualFittings]
+      summary: 가상 피팅 단건 조회
+      description: 저장된 ApplyImage 한 건(합성 결과)의 상세 정보를 조회합니다.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 적용 이미지 ID
+          schema:
+            type: integer
+            format: int64
+          example: 1
+      responses:
+        '200':
+          description: ApplyImage 상세
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplyImageResponse'
+        '404':
+          description: ApplyImage를 찾을 수 없음
+
+  # ==============================
+  # 5. Inquiries (문의)
+  # ==============================
+  /inquiries:
+    post:
+      tags: [Inquiries]
+      summary: 문의 등록
+      description: 현재 로그인한 사용자의 문의를 등록합니다.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InquiryCreateRequest'
+      responses:
+        '201':
+          description: 문의 등록 완료
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InquiryResponse'
+        '401':
+          description: 로그인 필요 (세션에 userId 없음)
+
+  /inquiries/my:
+    get:
+      tags: [Inquiries]
+      summary: 내 문의 리스트 조회
+      description: 현재 로그인한 사용자가 작성한 문의 목록을 조회합니다.
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: 페이지 번호 (1부터 시작)
+          schema:
+            type: integer
+            default: 1
+          example: 1
+        - name: size
+          in: query
+          required: false
+          description: 페이지 크기
+          schema:
+            type: integer
+            default: 20
+          example: 20
+      responses:
+        '200':
+          description: 내 문의 리스트
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InquiryListResponse'
+        '401':
+          description: 로그인 필요 (세션에 userId 없음)
+
+components:
+  schemas:
+    # ======================
+    # Auth / User
+    # ======================
+    KakaoLoginRequest:
+      type: object
+      properties:
+        authorizationCode:
+          type: string
+          description: 카카오 인가 코드
+        redirectUri:
+          type: string
+          description: 카카오에 등록된 redirect URI
+      required:
+        - authorizationCode
+        - redirectUri
+
+    KakaoLoginResponse:
+      type: object
+      description: 카카오 로그인 응답 (세션 저장용 정보 포함)
+      properties:
+        userId:
+          type: integer
+          format: int64
+        email:
+          type: string
+          nullable: true
+        name:
+          type: string
+          nullable: true
+        profileImageUrl:
+          type: string
+          nullable: true
+
+    UserMeResponse:
+      type: object
+      description: 내 정보 응답
+      properties:
+        id:
+          type: integer
+          format: int64
+        email:
+          type: string
+          nullable: true
+        name:
+          type: string
+          nullable: true
+        profileImageUrl:
+          type: string
+          nullable: true
+      example:
+        id: 5
+        email: "user@example.com"
+        name: "홍길동"
+        profileImageUrl: "https://imgnn.seoul.co.kr/img/upload/2024/08/06/SSC_20240806100040.jpg"
+
+    # ======================
+    # Bouquet
+    # ======================
+    BouquetListResponse:
+      type: object
+      description: 부케 리스트 응답
+      properties:
+        bouquets:
+          type: array
+          items:
+            $ref: '#/components/schemas/BouquetListItem'
+        totalCount:
+          type: integer
+          format: int64
+      example:
+        bouquets:
+          - id: 1
+            name: "핑크 로즈 부케"
+            price: 120000
+            reason: "로맨틱 무드에 잘 어울리는 부케"
+            description: "웨딩 촬영에 어울리는 로맨틱한 핑크 톤 부케입니다."
+            imageUrl: "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?q=80&auto=format&fit=crop&w=1200"
+            categories:
+              - id: 11
+                bouquetId: 1
+                season: "SPRING"
+                dressMood: "SIMPLE"
+                dressSilhouette: "A_LINE"
+                weddingColor: "NEUTRAL"
+                bouquetAtmosphere: "ROMANTIC_GARDEN"
+                usage: "WEDDING_PHOTO"
+          - id: 2
+            name: "화이트 튤립 부케"
+            price: 90000
+            reason: "미니멀한 무드에 적합"
+            description: "깔끔한 화이트 튤립으로 구성된 미니멀 부케입니다."
+            imageUrl: "https://images.unsplash.com/photo-1470093851219-69951fcbb533?q=80&auto=format&fit=crop&w=1200"
+            categories:
+              - id: 22
+                bouquetId: 2
+                season: "WINTER"
+                dressMood: "LUXURY"
+                dressSilhouette: "SHEATH"
+                weddingColor: "CLASSIC"
+                bouquetAtmosphere: "MODERN_MINIMAL"
+                usage: "BRIDAL_ROOM"
+          - id: 3
+            name: "내추럴 그린 부케"
+            price: 110000
+            reason: "자연스러운 분위기 연출"
+            description: "그린 foliage 중심의 내추럴 컨셉 부케입니다."
+            imageUrl: "https://images.unsplash.com/photo-1477506350614-fcdc29a3b157?q=80&auto=format&fit=crop&w=1200"
+            categories:
+              - id: 33
+                bouquetId: 3
+                season: "SUMMER"
+                dressMood: "BOHEMIAN"
+                dressSilhouette: "A_LINE"
+                weddingColor: "PASTEL"
+                bouquetAtmosphere: "NATURAL_BOHEMIAN"
+                usage: "WEDDING_CEREMONY"
+          - id: 4
+            name: "클래식 화이트 로즈"
+            price: 130000
+            reason: "클래식/엘레강스 무드"
+            description: "화이트 로즈로 구성된 클래식한 분위기의 부케입니다."
+            imageUrl: "https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&auto=format&fit=crop&w=1200"
+            categories:
+              - id: 44
+                bouquetId: 4
+                season: "FALL"
+                dressMood: "LACE"
+                dressSilhouette: "BALL_GOWN"
+                weddingColor: "CLASSIC"
+                bouquetAtmosphere: "CLASSIC_ELEGANCE"
+                usage: "WEDDING_PHOTO"
+          - id: 5
+            name: "비비드 포인트 부케"
+            price: 80000
+            reason: "사진에서 포인트가 되는 비비드 컬러"
+            description: "비비드 컬러로 활기를 주는 포인트 부케입니다."
+            imageUrl: "https://images.unsplash.com/photo-1497032628192-86f99bcd76bc?q=80&auto=format&fit=crop&w=1200"
+            categories:
+              - id: 55
+                bouquetId: 5
+                season: "SPRING"
+                dressMood: "SIMPLE"
+                dressSilhouette: "SHEATH"
+                weddingColor: "VIVID"
+                bouquetAtmosphere: "MODERN_MINIMAL"
+                usage: "WEDDING_PHOTO"
+          - id: 6
+            name: "파스텔 믹스 부케"
+            price: 95000
+            reason: "은은한 파스텔 톤 조화"
+            description: "파스텔 톤 플라워를 믹스하여 부드러운 무드를 연출합니다."
+            imageUrl: "https://images.unsplash.com/photo-1501004318641-b39e6451bec6?q=80&auto=format&fit=crop&w=1200"
+            categories:
+              - id: 66
+                bouquetId: 6
+                season: "SPRING"
+                dressMood: "LACE"
+                dressSilhouette: "A_LINE"
+                weddingColor: "PASTEL"
+                bouquetAtmosphere: "ROMANTIC_GARDEN"
+                usage: "BRIDAL_ROOM"
+          - id: 7
+            name: "보태니컬 와일드"
+            price: 115000
+            reason: "자연스럽고 와일드한 형태"
+            description: "와일드 플라워와 foliage로 보태니컬 무드 강조."
+            imageUrl: "https://images.unsplash.com/photo-1501004318641-b39e6451bec6?q=80&auto=format&fit=crop&w=1200"
+            categories:
+              - id: 77
+                bouquetId: 7
+                season: "SUMMER"
+                dressMood: "BOHEMIAN"
+                dressSilhouette: "MERMAID"
+                weddingColor: "NEUTRAL"
+                bouquetAtmosphere: "NATURAL_BOHEMIAN"
+                usage: "WEDDING_CEREMONY"
+          - id: 8
+            name: "럭셔리 레드 로즈"
+            price: 150000
+            reason: "강렬하고 럭셔리한 느낌"
+            description: "레드 로즈로 고급스러움을 표현한 부케입니다."
+            imageUrl: "https://images.unsplash.com/photo-1509043759401-136742328bb3?q=80&auto=format&fit=crop&w=1200"
+            categories:
+              - id: 88
+                bouquetId: 8
+                season: "WINTER"
+                dressMood: "LUXURY"
+                dressSilhouette: "SHEATH"
+                weddingColor: "CLASSIC"
+                bouquetAtmosphere: "CLASSIC_ELEGANCE"
+                usage: "WEDDING_CEREMONY"
+        totalCount: 8
+
+    # 리스트용 아이템: 기본 정보 + 카테고리 배열 포함
+    BouquetListItem:
+      type: object
+      description: 리스트에서 사용하는 부케 정보 (카테고리 포함)
+      allOf:
+        - $ref: '#/components/schemas/BouquetResponse'
+        - type: object
+          properties:
+            categories:
+              type: array
+              items:
+                $ref: '#/components/schemas/BouquetCategory'
+
+    # 상세나 참조 지점에서 사용할: 기본 정보 + 카테고리 포함
+    BouquetWithCategories:
+      type: object
+      description: 카테고리 배열을 포함하는 부케 정보
+      allOf:
+        - $ref: '#/components/schemas/BouquetResponse'
+        - type: object
+          properties:
+            categories:
+              type: array
+              items:
+                $ref: '#/components/schemas/BouquetCategory'
+
+    BouquetResponse:
+      type: object
+      description: 부케 기본 정보
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        price:
+          type: integer
+          nullable: true
+        reason:
+          type: string
+          nullable: true
+          description: 추천/선정 이유 또는 설명 요약
+        description:
+          type: string
+          nullable: true
+        imageUrl:
+          type: string
+          nullable: true
+      example:
+        id: 1
+        name: "핑크 로즈 부케"
+        price: 120000
+        reason: "로맨틱 무드에 잘 어울리는 부케"
+        description: "웨딩 촬영에 어울리는 로맨틱한 핑크 톤 부케입니다."
+        imageUrl: "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?q=80&auto=format&fit=crop&w=1200"
+
+    BouquetDetailResponse:
+      type: object
+      description: 부케 상세 정보 (카테고리/스토어 포함)
+      allOf:
+        - $ref: '#/components/schemas/BouquetResponse'
+        - type: object
+          properties:
+            categories:
+              type: array
+              items:
+                $ref: '#/components/schemas/BouquetCategory'
+            store:
+              $ref: '#/components/schemas/Store'
+      example:
+        id: 1
+        name: "핑크 로즈 부케"
+        price: 120000
+        reason: "로맨틱 무드에 잘 어울리는 부케"
+        description: "웨딩 촬영에 어울리는 로맨틱한 핑크 톤 부케입니다."
+        imageUrl: "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?q=80&auto=format&fit=crop&w=1200"
+        categories:
+          - id: 11
+            bouquetId: 1
+            season: "SPRING"
+            dressMood: "SIMPLE"
+            dressSilhouette: "A_LINE"
+            weddingColor: "NEUTRAL"
+            bouquetAtmosphere: "ROMANTIC_GARDEN"
+            usage: "WEDDING_PHOTO"
+        store:
+          id: 1001
+          bouquetId: 1
+          storeName: "로즈가든 스튜디오"
+          storeUrl: "https://example.com/rosegarden"
+          instagramId: "rosegarden_bouquet"
+
+    BouquetCategory:
+      type: object
+      description: 부케 속성/카테고리 매핑
+      properties:
+        id:
+          type: integer
+          format: int64
+        bouquetId:
+          type: integer
+          format: int64
+        season:
+          $ref: '#/components/schemas/Season'
+        dressMood:
+          $ref: '#/components/schemas/DressMood'
+        dressSilhouette:
+          $ref: '#/components/schemas/DressSilhouette'
+        weddingColor:
+          $ref: '#/components/schemas/WeddingColor'
+        bouquetAtmosphere:
+          $ref: '#/components/schemas/BouquetAtmosphere'
+        usage:
+          $ref: '#/components/schemas/Usage'
+      example:
+        id: 11
+        bouquetId: 1
+        season: "SPRING"
+        dressMood: "SIMPLE"
+        dressSilhouette: "A_LINE"
+        weddingColor: "NEUTRAL"
+        bouquetAtmosphere: "ROMANTIC_GARDEN"
+        usage: "WEDDING_PHOTO"
+
+    Store:
+      type: object
+      description: 부케를 판매/제작하는 스토어 정보 (부케당 1개)
+      properties:
+        id:
+          type: integer
+          format: int64
+        bouquetId:
+          type: integer
+          format: int64
+        storeName:
+          type: string
+        storeUrl:
+          type: string
+          nullable: true
+        instagramId:
+          type: string
+          nullable: true
+      example:
+        id: 1001
+        bouquetId: 1
+        storeName: "로즈가든 스튜디오"
+        storeUrl: "https://example.com/rosegarden"
+        instagramId: "rosegarden_bouquet"
+
+    # ======================
+    # Recommendations
+    # ======================
+    RecommendationSessionRequest:
+      type: object
+      description: 추천 세션 생성 요청 옵션
+      properties:
+        season:
+          $ref: '#/components/schemas/Season'
+        dressMood:
+          $ref: '#/components/schemas/DressMood'
+        dressSilhouette:
+          $ref: '#/components/schemas/DressSilhouette'
+        weddingColor:
+          $ref: '#/components/schemas/WeddingColor'
+        bouquetAtmosphere:
+          $ref: '#/components/schemas/BouquetAtmosphere'
+        usage:
+          $ref: '#/components/schemas/Usage'
+        limit:
+          type: integer
+          format: int32
+          description: 추천 부케 개수 (기본 3)
+      additionalProperties: false
+
+    RecommendationSessionResponse:
+      type: object
+      description: 추천 세션(입력 옵션 + 추천 아이템들)
+      properties:
+        id:
+          type: integer
+          format: int64
+        userId:
+          type: integer
+          format: int64
+        season:
+          $ref: '#/components/schemas/Season'
+        dressMood:
+          $ref: '#/components/schemas/DressMood'
+        dressSilhouette:
+          $ref: '#/components/schemas/DressSilhouette'
+        weddingColor:
+          $ref: '#/components/schemas/WeddingColor'
+        bouquetAtmosphere:
+          $ref: '#/components/schemas/BouquetAtmosphere'
+        usage:
+          $ref: '#/components/schemas/Usage'
+        createdAt:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecommendationItemResponse'
+      example:
+        id: 10
+        userId: 5
+        season: "SPRING"
+        dressMood: "SIMPLE"
+        dressSilhouette: "A_LINE"
+        weddingColor: "NEUTRAL"
+        bouquetAtmosphere: "ROMANTIC_GARDEN"
+        usage: "WEDDING_PHOTO"
+        createdAt: "2025-01-01T12:00:00Z"
+        items:
+          - id: 100
+            sessionId: 10
+            bouquetId: 1
+            rank: 1
+            createdAt: "2025-01-01T12:00:00Z"
+            bouquet:
+              id: 1
+              name: "핑크 로즈 부케"
+              price: 120000
+              description: "웨딩 촬영에 어울리는 로맨틱한 핑크 톤 부케입니다."
+              imageUrl: "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?q=80&auto=format&fit=crop&w=1200"
+              categories:
+                - id: 11
+                  bouquetId: 1
+                  season: "SPRING"
+                  dressMood: "SIMPLE"
+                  dressSilhouette: "A_LINE"
+                  weddingColor: "NEUTRAL"
+                  bouquetAtmosphere: "ROMANTIC_GARDEN"
+                  usage: "WEDDING_PHOTO"
+          - id: 101
+            sessionId: 10
+            bouquetId: 2
+            rank: 2
+            createdAt: "2025-01-01T12:00:05Z"
+            bouquet:
+              id: 2
+              name: "화이트 튤립 부케"
+              price: 90000
+              description: "깔끔한 화이트 튤립으로 구성된 미니멀 부케입니다."
+              imageUrl: "https://images.unsplash.com/photo-1470093851219-69951fcbb533?q=80&auto=format&fit=crop&w=1200"
+              categories:
+                - id: 22
+                  bouquetId: 2
+                  season: "WINTER"
+                  dressMood: "LUXURY"
+                  dressSilhouette: "SHEATH"
+                  weddingColor: "CLASSIC"
+                  bouquetAtmosphere: "MODERN_MINIMAL"
+                  usage: "BRIDAL_ROOM"
+          - id: 102
+            sessionId: 10
+            bouquetId: 3
+            rank: 3
+            createdAt: "2025-01-01T12:00:10Z"
+            bouquet:
+              id: 3
+              name: "내추럴 그린 부케"
+              price: 110000
+              description: "그린 foliage 중심의 내추럴 컨셉 부케입니다."
+              imageUrl: "https://images.unsplash.com/photo-1477506350614-fcdc29a3b157?q=80&auto=format&fit=crop&w=1200"
+              categories:
+                - id: 33
+                  bouquetId: 3
+                  season: "SUMMER"
+                  dressMood: "BOHEMIAN"
+                  dressSilhouette: "A_LINE"
+                  weddingColor: "PASTEL"
+                  bouquetAtmosphere: "NATURAL_BOHEMIAN"
+                  usage: "WEDDING_CEREMONY"
+
+    RecommendationItemResponse:
+      type: object
+      description: 추천된 개별 부케 아이템
+      properties:
+        id:
+          type: integer
+          format: int64
+        sessionId:
+          type: integer
+          format: int64
+        bouquetId:
+          type: integer
+          format: int64
+        rank:
+          type: integer
+          format: int32
+          description: 추천 순위 (1,2,3…)
+        createdAt:
+          type: string
+          format: date-time
+        bouquet:
+          $ref: '#/components/schemas/BouquetWithCategories'
+
+    RecommendationSessionListResponse:
+      type: object
+      description: 추천 세션 리스트 응답
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecommendationSessionResponse'
+        totalCount:
+          type: integer
+          format: int64
+      example:
+        items:
+          - id: 10
+            userId: 5
+            season: "SPRING"
+            dressMood: "SIMPLE"
+            dressSilhouette: "A_LINE"
+            weddingColor: "NEUTRAL"
+            bouquetAtmosphere: "ROMANTIC_GARDEN"
+            usage: "WEDDING_PHOTO"
+            createdAt: "2025-01-01T12:00:00Z"
+            items:
+              - id: 100
+                sessionId: 10
+                bouquetId: 1
+                rank: 1
+                createdAt: "2025-01-01T12:00:00Z"
+                bouquet:
+                  id: 1
+                  name: "핑크 로즈 부케"
+                  imageUrl: "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?q=80&auto=format&fit=crop&w=1200"
+                  categories:
+                    - id: 11
+                      bouquetId: 1
+                      season: "SPRING"
+                      dressMood: "SIMPLE"
+                      dressSilhouette: "A_LINE"
+                      weddingColor: "NEUTRAL"
+                      bouquetAtmosphere: "ROMANTIC_GARDEN"
+                      usage: "WEDDING_PHOTO"
+              - id: 101
+                sessionId: 10
+                bouquetId: 2
+                rank: 2
+                createdAt: "2025-01-01T12:00:05Z"
+                bouquet:
+                  id: 2
+                  name: "화이트 튤립 부케"
+                  imageUrl: "https://images.unsplash.com/photo-1470093851219-69951fcbb533?q=80&auto=format&fit=crop&w=1200"
+                  categories:
+                    - id: 22
+                      bouquetId: 2
+                      season: "WINTER"
+                      dressMood: "LUXURY"
+                      dressSilhouette: "SHEATH"
+                      weddingColor: "CLASSIC"
+                      bouquetAtmosphere: "MODERN_MINIMAL"
+                      usage: "BRIDAL_ROOM"
+              - id: 102
+                sessionId: 10
+                bouquetId: 3
+                rank: 3
+                createdAt: "2025-01-01T12:00:10Z"
+                bouquet:
+                  id: 3
+                  name: "내추럴 그린 부케"
+                  imageUrl: "https://images.unsplash.com/photo-1477506350614-fcdc29a3b157?q=80&auto=format&fit=crop&w=1200"
+                  categories:
+                    - id: 33
+                      bouquetId: 3
+                      season: "SUMMER"
+                      dressMood: "BOHEMIAN"
+                      dressSilhouette: "A_LINE"
+                      weddingColor: "PASTEL"
+                      bouquetAtmosphere: "NATURAL_BOHEMIAN"
+                      usage: "WEDDING_CEREMONY"
+          - id: 11
+            userId: 5
+            season: "FALL"
+            dressMood: "LACE"
+            dressSilhouette: "BALL_GOWN"
+            weddingColor: "CLASSIC"
+            bouquetAtmosphere: "CLASSIC_ELEGANCE"
+            usage: "WEDDING_PHOTO"
+            createdAt: "2025-02-10T15:30:00Z"
+            items:
+              - id: 110
+                sessionId: 11
+                bouquetId: 4
+                rank: 1
+                createdAt: "2025-02-10T15:30:00Z"
+                bouquet:
+                  id: 4
+                  name: "클래식 화이트 로즈"
+                  imageUrl: "https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&auto=format&fit=crop&w=1200"
+                  categories:
+                    - id: 44
+                      bouquetId: 4
+                      season: "FALL"
+                      dressMood: "LACE"
+                      dressSilhouette: "BALL_GOWN"
+                      weddingColor: "CLASSIC"
+                      bouquetAtmosphere: "CLASSIC_ELEGANCE"
+                      usage: "WEDDING_PHOTO"
+              - id: 111
+                sessionId: 11
+                bouquetId: 5
+                rank: 2
+                createdAt: "2025-02-10T15:30:05Z"
+                bouquet:
+                  id: 5
+                  name: "비비드 포인트 부케"
+                  imageUrl: "https://images.unsplash.com/photo-1497032628192-86f99bcd76bc?q=80&auto=format&fit=crop&w=1200"
+                  categories:
+                    - id: 55
+                      bouquetId: 5
+                      season: "SPRING"
+                      dressMood: "SIMPLE"
+                      dressSilhouette: "SHEATH"
+                      weddingColor: "VIVID"
+                      bouquetAtmosphere: "MODERN_MINIMAL"
+                      usage: "WEDDING_PHOTO"
+              - id: 112
+                sessionId: 11
+                bouquetId: 6
+                rank: 3
+                createdAt: "2025-02-10T15:30:10Z"
+                bouquet:
+                  id: 6
+                  name: "파스텔 믹스 부케"
+                  imageUrl: "https://images.unsplash.com/photo-1501004318641-b39e6451bec6?q=80&auto=format&fit=crop&w=1200"
+                  categories:
+                    - id: 66
+                      bouquetId: 6
+                      season: "SPRING"
+                      dressMood: "LACE"
+                      dressSilhouette: "A_LINE"
+                      weddingColor: "PASTEL"
+                      bouquetAtmosphere: "ROMANTIC_GARDEN"
+                      usage: "BRIDAL_ROOM"
+          - id: 12
+            userId: 5
+            season: "SUMMER"
+            dressMood: "BOHEMIAN"
+            dressSilhouette: "MERMAID"
+            weddingColor: "NEUTRAL"
+            bouquetAtmosphere: "NATURAL_BOHEMIAN"
+            usage: "WEDDING_CEREMONY"
+            createdAt: "2025-06-15T14:00:00Z"
+            items:
+              - id: 120
+                sessionId: 12
+                bouquetId: 7
+                rank: 1
+                createdAt: "2025-06-15T14:00:00Z"
+                bouquet:
+                  id: 7
+                  name: "보태니컬 와일드"
+                  imageUrl: "https://images.unsplash.com/photo-1501004318641-b39e6451bec6?q=80&auto=format&fit=crop&w=1200"
+                  categories:
+                    - id: 77
+                      bouquetId: 7
+                      season: "SUMMER"
+                      dressMood: "BOHEMIAN"
+                      dressSilhouette: "MERMAID"
+                      weddingColor: "NEUTRAL"
+                      bouquetAtmosphere: "NATURAL_BOHEMIAN"
+                      usage: "WEDDING_CEREMONY"
+              - id: 121
+                sessionId: 12
+                bouquetId: 3
+                rank: 2
+                createdAt: "2025-06-15T14:00:05Z"
+                bouquet:
+                  id: 3
+                  name: "내추럴 그린 부케"
+                  imageUrl: "https://images.unsplash.com/photo-1477506350614-fcdc29a3b157?q=80&auto=format&fit=crop&w=1200"
+                  categories:
+                    - id: 33
+                      bouquetId: 3
+                      season: "SUMMER"
+                      dressMood: "BOHEMIAN"
+                      dressSilhouette: "A_LINE"
+                      weddingColor: "PASTEL"
+                      bouquetAtmosphere: "NATURAL_BOHEMIAN"
+                      usage: "WEDDING_CEREMONY"
+              - id: 122
+                sessionId: 12
+                bouquetId: 6
+                rank: 3
+                createdAt: "2025-06-15T14:00:10Z"
+                bouquet:
+                  id: 6
+                  name: "파스텔 믹스 부케"
+                  imageUrl: "https://images.unsplash.com/photo-1501004318641-b39e6451bec6?q=80&auto=format&fit=crop&w=1200"
+                  categories:
+                    - id: 66
+                      bouquetId: 6
+                      season: "SPRING"
+                      dressMood: "LACE"
+                      dressSilhouette: "A_LINE"
+                      weddingColor: "PASTEL"
+                      bouquetAtmosphere: "ROMANTIC_GARDEN"
+                      usage: "BRIDAL_ROOM"
+          - id: 13
+            userId: 5
+            season: "WINTER"
+            dressMood: "LUXURY"
+            dressSilhouette: "SHEATH"
+            weddingColor: "CLASSIC"
+            bouquetAtmosphere: "CLASSIC_ELEGANCE"
+            usage: "WEDDING_CEREMONY"
+            createdAt: "2025-12-20T16:00:00Z"
+            items:
+              - id: 130
+                sessionId: 13
+                bouquetId: 8
+                rank: 1
+                createdAt: "2025-12-20T16:00:00Z"
+                bouquet:
+                  id: 8
+                  name: "럭셔리 레드 로즈"
+                  imageUrl: "https://images.unsplash.com/photo-1509043759401-136742328bb3?q=80&auto=format&fit=crop&w=1200"
+                  categories:
+                    - id: 88
+                      bouquetId: 8
+                      season: "WINTER"
+                      dressMood: "LUXURY"
+                      dressSilhouette: "SHEATH"
+                      weddingColor: "CLASSIC"
+                      bouquetAtmosphere: "CLASSIC_ELEGANCE"
+                      usage: "WEDDING_CEREMONY"
+              - id: 131
+                sessionId: 13
+                bouquetId: 2
+                rank: 2
+                createdAt: "2025-12-20T16:00:05Z"
+                bouquet:
+                  id: 2
+                  name: "화이트 튤립 부케"
+                  imageUrl: "https://images.unsplash.com/photo-1470093851219-69951fcbb533?q=80&auto=format&fit=crop&w=1200"
+                  categories:
+                    - id: 22
+                      bouquetId: 2
+                      season: "WINTER"
+                      dressMood: "LUXURY"
+                      dressSilhouette: "SHEATH"
+                      weddingColor: "CLASSIC"
+                      bouquetAtmosphere: "MODERN_MINIMAL"
+                      usage: "BRIDAL_ROOM"
+              - id: 132
+                sessionId: 13
+                bouquetId: 4
+                rank: 3
+                createdAt: "2025-12-20T16:00:10Z"
+                bouquet:
+                  id: 4
+                  name: "클래식 화이트 로즈"
+                  imageUrl: "https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&auto=format&fit=crop&w=1200"
+                  categories:
+                    - id: 44
+                      bouquetId: 4
+                      season: "FALL"
+                      dressMood: "LACE"
+                      dressSilhouette: "BALL_GOWN"
+                      weddingColor: "CLASSIC"
+                      bouquetAtmosphere: "CLASSIC_ELEGANCE"
+                      usage: "WEDDING_PHOTO"
+        totalCount: 4
+
+    # ======================
+    # ApplyImage / Virtual Fittings
+    # ======================
+    ApplyImageResponse:
+      type: object
+      description: 합성 결과 정보 (ApplyImage)
+      properties:
+        id:
+          type: integer
+          format: int64
+        userId:
+          type: integer
+          format: int64
+        bouquetId:
+          type: integer
+          format: int64
+        sessionId:
+          type: integer
+          format: int64
+          nullable: true
+        srcImageUrl:
+          type: string
+          description: 업로드된 원본 이미지 URL
+        genImageUrl:
+          type: string
+          nullable: true
+          description: 합성 결과 이미지 URL
+        dressMood:
+          $ref: '#/components/schemas/DressMood'
+        dressSilhouette:
+          $ref: '#/components/schemas/DressSilhouette'
+        weddingColor:
+          $ref: '#/components/schemas/WeddingColor'
+        season:
+          $ref: '#/components/schemas/Season'
+        bouquetAtmosphere:
+          $ref: '#/components/schemas/BouquetAtmosphere'
+        usage:
+          $ref: '#/components/schemas/Usage'
+        status:
+          $ref: '#/components/schemas/ApplyStatus'
+        createdAt:
+          type: string
+          format: date-time
+        bouquet:
+          $ref: '#/components/schemas/BouquetWithCategories'
+      example:
+        id: 11
+        userId: 5
+        bouquetId: 1
+        sessionId: 10
+        srcImageUrl: "https://picsum.photos/seed/user-src/900/675"
+        genImageUrl: "https://picsum.photos/seed/user-gen/900/675"
+        dressMood: "SIMPLE"
+        dressSilhouette: "A_LINE"
+        weddingColor: "NEUTRAL"
+        season: "SPRING"
+        bouquetAtmosphere: "ROMANTIC_GARDEN"
+        usage: "WEDDING_PHOTO"
+        status: "DONE"
+        createdAt: "2025-01-02T08:00:00Z"
+        bouquet:
+          id: 1
+          name: "핑크 로즈 부케"
+          price: 120000
+          imageUrl: "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?q=80&auto=format&fit=crop&w=1200"
+          categories:
+            - id: 11
+              bouquetId: 1
+              season: "SPRING"
+              dressMood: "SIMPLE"
+              dressSilhouette: "A_LINE"
+              weddingColor: "NEUTRAL"
+              bouquetAtmosphere: "ROMANTIC_GARDEN"
+              usage: "WEDDING_PHOTO"
+
+    ApplyImageListResponse:
+      type: object
+      description: 가상 피팅 히스토리 리스트 응답
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApplyImageResponse'
+        totalCount:
+          type: integer
+          format: int64
+      example:
+        items:
+          - id: 11
+            userId: 5
+            bouquetId: 1
+            sessionId: 10
+            srcImageUrl: "https://picsum.photos/seed/vf-src-11/900/675"
+            genImageUrl: "https://picsum.photos/seed/vf-gen-11/900/675"
+            dressMood: "SIMPLE"
+            dressSilhouette: "A_LINE"
+            weddingColor: "NEUTRAL"
+            season: "SPRING"
+            bouquetAtmosphere: "ROMANTIC_GARDEN"
+            usage: "WEDDING_PHOTO"
+            status: "DONE"
+            createdAt: "2025-01-02T08:00:00Z"
+            bouquet:
+              id: 1
+              name: "핑크 로즈 부케"
+              imageUrl: "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?q=80&auto=format&fit=crop&w=1200"
+              categories:
+                - id: 11
+                  bouquetId: 1
+                  season: "SPRING"
+                  dressMood: "SIMPLE"
+                  dressSilhouette: "A_LINE"
+                  weddingColor: "NEUTRAL"
+                  bouquetAtmosphere: "ROMANTIC_GARDEN"
+                  usage: "WEDDING_PHOTO"
+          - id: 12
+            userId: 5
+            bouquetId: 2
+            sessionId: 10
+            srcImageUrl: "https://picsum.photos/seed/vf-src-12/900/675"
+            genImageUrl: "https://picsum.photos/seed/vf-gen-12/900/675"
+            dressMood: "LUXURY"
+            dressSilhouette: "SHEATH"
+            weddingColor: "CLASSIC"
+            season: "WINTER"
+            bouquetAtmosphere: "MODERN_MINIMAL"
+            usage: "BRIDAL_ROOM"
+            status: "DONE"
+            createdAt: "2025-01-02T09:00:00Z"
+            bouquet:
+              id: 2
+              name: "화이트 튤립 부케"
+              imageUrl: "https://images.unsplash.com/photo-1470093851219-69951fcbb533?q=80&auto=format&fit=crop&w=1200"
+              categories:
+                - id: 22
+                  bouquetId: 2
+                  season: "WINTER"
+                  dressMood: "LUXURY"
+                  dressSilhouette: "SHEATH"
+                  weddingColor: "CLASSIC"
+                  bouquetAtmosphere: "MODERN_MINIMAL"
+                  usage: "BRIDAL_ROOM"
+          - id: 13
+            userId: 5
+            bouquetId: 3
+            sessionId: 10
+            srcImageUrl: "https://picsum.photos/seed/vf-src-13/900/675"
+            genImageUrl: "https://picsum.photos/seed/vf-gen-13/900/675"
+            dressMood: "BOHEMIAN"
+            dressSilhouette: "A_LINE"
+            weddingColor: "PASTEL"
+            season: "SUMMER"
+            bouquetAtmosphere: "NATURAL_BOHEMIAN"
+            usage: "WEDDING_CEREMONY"
+            status: "DONE"
+            createdAt: "2025-01-02T10:00:00Z"
+            bouquet:
+              id: 3
+              name: "내추럴 그린 부케"
+              imageUrl: "https://images.unsplash.com/photo-1477506350614-fcdc29a3b157?q=80&auto=format&fit=crop&w=1200"
+              categories:
+                - id: 33
+                  bouquetId: 3
+                  season: "SUMMER"
+                  dressMood: "BOHEMIAN"
+                  dressSilhouette: "A_LINE"
+                  weddingColor: "PASTEL"
+                  bouquetAtmosphere: "NATURAL_BOHEMIAN"
+                  usage: "WEDDING_CEREMONY"
+          - id: 14
+            userId: 5
+            bouquetId: 4
+            sessionId: 11
+            srcImageUrl: "https://picsum.photos/seed/vf-src-14/900/675"
+            genImageUrl: "https://picsum.photos/seed/vf-gen-14/900/675"
+            dressMood: "LACE"
+            dressSilhouette: "BALL_GOWN"
+            weddingColor: "CLASSIC"
+            season: "FALL"
+            bouquetAtmosphere: "CLASSIC_ELEGANCE"
+            usage: "WEDDING_PHOTO"
+            status: "DONE"
+            createdAt: "2025-02-10T15:30:00Z"
+            bouquet:
+              id: 4
+              name: "클래식 화이트 로즈"
+              imageUrl: "https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&auto=format&fit=crop&w=1200"
+              categories:
+                - id: 44
+                  bouquetId: 4
+                  season: "FALL"
+                  dressMood: "LACE"
+                  dressSilhouette: "BALL_GOWN"
+                  weddingColor: "CLASSIC"
+                  bouquetAtmosphere: "CLASSIC_ELEGANCE"
+                  usage: "WEDDING_PHOTO"
+          - id: 15
+            userId: 5
+            bouquetId: 5
+            sessionId: 11
+            srcImageUrl: "https://picsum.photos/seed/vf-src-15/900/675"
+            genImageUrl: "https://picsum.photos/seed/vf-gen-15/900/675"
+            dressMood: "SIMPLE"
+            dressSilhouette: "SHEATH"
+            weddingColor: "VIVID"
+            season: "SPRING"
+            bouquetAtmosphere: "MODERN_MINIMAL"
+            usage: "WEDDING_PHOTO"
+            status: "DONE"
+            createdAt: "2025-02-10T15:35:00Z"
+            bouquet:
+              id: 5
+              name: "비비드 포인트 부케"
+              imageUrl: "https://images.unsplash.com/photo-1497032628192-86f99bcd76bc?q=80&auto=format&fit=crop&w=1200"
+              categories:
+                - id: 55
+                  bouquetId: 5
+                  season: "SPRING"
+                  dressMood: "SIMPLE"
+                  dressSilhouette: "SHEATH"
+                  weddingColor: "VIVID"
+                  bouquetAtmosphere: "MODERN_MINIMAL"
+                  usage: "WEDDING_PHOTO"
+          - id: 16
+            userId: 5
+            bouquetId: 6
+            sessionId: 11
+            srcImageUrl: "https://picsum.photos/seed/vf-src-16/900/675"
+            genImageUrl: "https://picsum.photos/seed/vf-gen-16/900/675"
+            dressMood: "LACE"
+            dressSilhouette: "A_LINE"
+            weddingColor: "PASTEL"
+            season: "SPRING"
+            bouquetAtmosphere: "ROMANTIC_GARDEN"
+            usage: "BRIDAL_ROOM"
+            status: "DONE"
+            createdAt: "2025-02-10T15:40:00Z"
+            bouquet:
+              id: 6
+              name: "파스텔 믹스 부케"
+              imageUrl: "https://images.unsplash.com/photo-1501004318641-b39e6451bec6?q=80&auto=format&fit=crop&w=1200"
+              categories:
+                - id: 66
+                  bouquetId: 6
+                  season: "SPRING"
+                  dressMood: "LACE"
+                  dressSilhouette: "A_LINE"
+                  weddingColor: "PASTEL"
+                  bouquetAtmosphere: "ROMANTIC_GARDEN"
+                  usage: "BRIDAL_ROOM"
+        totalCount: 6
+
+    # ======================
+    # Inquiries
+    # ======================
+    InquiryCreateRequest:
+      type: object
+      description: 문의 생성 요청
+      properties:
+        content:
+          type: string
+          description: 문의 내용
+      required:
+        - content
+
+    InquiryResponse:
+      type: object
+      description: 문의 단건 응답
+      properties:
+        id:
+          type: integer
+          format: int64
+        userId:
+          type: integer
+          format: int64
+        content:
+          type: string
+        status:
+          $ref: '#/components/schemas/InquiryStatus'
+        createdAt:
+          type: string
+          format: date-time
+
+    InquiryListResponse:
+      type: object
+      description: 내 문의 리스트 응답
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/InquiryResponse'
+        totalCount:
+          type: integer
+          format: int64
+
+    # ======================
+    # Enums
+    # ======================
+    Season:
+      type: string
+      description: 시즌
+      enum: [SPRING, SUMMER, FALL, WINTER]
+
+    DressMood:
+      type: string
+      description: 드레스 무드
+      enum: [SIMPLE, LACE, BOHEMIAN, LUXURY]
+
+    DressSilhouette:
+      type: string
+      description: 드레스 실루엣
+      enum: [A_LINE, BALL_GOWN, MERMAID, SHEATH]
+
+    WeddingColor:
+      type: string
+      description: 예식 색감
+      enum: [NEUTRAL, PASTEL, CLASSIC, VIVID]
+
+    BouquetAtmosphere:
+      type: string
+      description: 부케 분위기
+      enum: [ROMANTIC_GARDEN, MODERN_MINIMAL, NATURAL_BOHEMIAN, CLASSIC_ELEGANCE]
+
+    Usage:
+      type: string
+      description: 부케 사용 용도
+      enum: [WEDDING_PHOTO, BRIDAL_ROOM, WEDDING_CEREMONY]
+
+    ApplyStatus:
+      type: string
+      description: 이미지 합성 상태
+      enum: [PENDING, DONE, FAILED]
+
+    InquiryStatus:
+      type: string
+      description: 문의 처리 상태
+      enum: [NEW, READ, DONE]

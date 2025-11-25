@@ -7,11 +7,14 @@ import AppliedList from '../pages/AppliedList'
 import AppliedDetail from '../pages/AppliedDetail'
 import OthersList from '../pages/OthersList'
 import OthersDetail from '../pages/OthersDetail'
+import Bouquet from '../pages/Bouquet'
 import Apply from '../pages/Apply'
 import Recommend from '../pages/Recommend'
 import Result from '../pages/Result'
+import Recommendations from '../pages/Recommendations'
 import MyPage from '../pages/MyPage'
 import RecentList from '../pages/RecentList'
+import Bouquets from '../pages/Bouquets'
 import Login from '../pages/Login'
 import KakaoCallback from '../pages/KakaoCallback'
 import Onboarding from '../pages/Onboarding'
@@ -39,6 +42,9 @@ export default function AppRouter() {
       <Route path="/applied/:id" element={<AppliedDetail />} />
       <Route path="/others/list" element={<OthersList />} />
       <Route path="/others/:id" element={<OthersDetail />} />
+      <Route path="/recommendations" element={<Recommendations />} />
+      <Route path="/bouquets" element={<Bouquets />} />
+      <Route path="/bouquets/:id" element={<Bouquet />} />
       <Route path="/recent/list" element={<RecentList />} />
       <Route path="/apply" element={<Apply />} />
       <Route path="/recommend" element={<Recommend />} />

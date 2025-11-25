@@ -16,7 +16,8 @@ function Layout() {
     location.pathname === '/recent/list' ||
     location.pathname === '/my/list' ||
     location.pathname === '/applied/list' ||
-    location.pathname === '/others/list'
+    location.pathname === '/others/list' ||
+    location.pathname === '/recommendations'
   const clearToken = () => {
     try {
       localStorage.removeItem('accessToken')
