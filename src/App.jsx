@@ -26,9 +26,12 @@ function Layout() {
     }
   }
   return (
-    <div className="min-h-full flex flex-col">
-      {!hideHeader && <Header />}
-      <AppRouter />
+    <div className="min-h-full flex flex-col items-center">
+      <div className="w-full max-w-md mx-auto">
+        {!hideHeader && <Header />}
+        <AppRouter />
+        <Footer />
+      </div>
       <button
         type="button"
         onClick={clearToken}
@@ -39,7 +42,6 @@ function Layout() {
         <br></br>
         개발용
       </button>
-      <Footer />
     </div>
   )
 }
