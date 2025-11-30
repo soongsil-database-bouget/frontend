@@ -9,8 +9,8 @@ export default function BouquetCard({ imageUrl, title, tags = [], price, to, onC
 
   const CardInner = (
     <>
-      <div className="aspect-[4/3] overflow-hidden relative bg-gray-100">
-        <img className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-200" src={imageUrl} alt={title} />
+      <div className="aspect-[4/3] overflow-hidden relative bg-gray-100 rounded-[12px]">
+        <img className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-200 rounded-[12px]" src={imageUrl} alt={title} />
       </div>
       <div className="bg-white pt-3 space-y-1.5">
         <h3 className="m-0 font-medium text-gray-900 text-sm leading-tight line-clamp-2">{title}</h3>

@@ -1,18 +1,14 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Button from '../Button'
 import Modal from '../Modal'
 import UploadDropzone from '../UploadDropzone'
+import Button from '../Button'
 import { addRecentlyViewed } from '../../utils/recentlyViewed'
-import { getTagChipClasses } from '../../utils/tagLabels'
 
 export default function BouquetDetail({ item, mode = 'others' }) {
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [userImage, setUserImage] = useState(null)
-
-  const applyButtonLabel =
-    mode === 'my' ? '내 사진에 부케 적용하기' : '부케 착용해보기'
 
   useEffect(() => {
     addRecentlyViewed({ imageUrl: item.imageUrl, title: item.title })
@@ -20,50 +16,81 @@ export default function BouquetDetail({ item, mode = 'others' }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item?.imageUrl])
 
+  const formatPrice = (price) => {
+    if (!price) return null
+    return new Intl.NumberFormat('ko-KR').format(price) + '원'
+  }
+
   return (
     <>
-      <div className="max-w-screen-lg mx-auto px-4 py-10">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="rounded-2xl overflow-hidden border border-gray-200">
-            <img className="w-full h-full object-cover" src={item.imageUrl} alt={item.title} />
-          </div>
-          <div>
-            <h1 className="text-2xl font-extrabold">{item.title}</h1>
-            <div className="mt-3 flex gap-2">
-              {item.tags?.map((t, idx) => (
-                <span key={idx} className={getTagChipClasses(t)}>
-                  {t}
+      <div className="min-h-screen bg-white">
+        {/* 부케 이미지 */}
+        <div className="w-full aspect-square bg-gray-50">
+          <img 
+            className="w-full h-full object-cover" 
+            src={item.imageUrl} 
+            alt={item.title} 
+          />
+        </div>
+
+        {/* 상품 정보 섹션 */}
+        <div className="max-w-md mx-auto px-4 pt-6 pb-8">
+          {/* 가게명 */}
+          {item.vendor?.name && (
+            <div className="mb-2">
+              <div className="text-sm text-gray-600 font-medium">
+                {item.vendor.name}
+              </div>
+            </div>
+          )}
+
+          {/* 부케 이름 */}
+          <h1 className="text-2xl font-bold text-gray-900 mb-3 leading-tight">
+            {item.title}
+          </h1>
+
+          {/* 해시태그 */}
+          {item.tags && item.tags.length > 0 && (
+            <div className="flex flex-wrap gap-x-2.5 gap-y-1.5 mb-5">
+              {item.tags.map((tag, idx) => (
+                <span
+                  key={idx}
+                  className="text-xs font-medium"
+                  style={{ color: 'rgba(255, 105, 147, 0.75)' }}
+                >
+                  #{tag}
                 </span>
               ))}
             </div>
-            <p className="mt-6 text-gray-700 leading-relaxed">{item.description}</p>
+          )}
 
-            {item.vendor && (
-              <div className="mt-8 rounded-2xl bg-gray-50 border border-gray-200 p-6">
-                <h2 className="text-base font-semibold text-gray-900">업체 정보</h2>
-                <div className="mt-4 space-y-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-5 h-5 grid place-items-center text-gray-400">🏬</div>
-                    <div className="text-gray-800">{item.vendor.name}</div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-5 h-5 grid place-items-center text-gray-400">📍</div>
-                    <div className="text-gray-800">{item.vendor.address}</div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-5 h-5 grid place-items-center text-gray-400">📸</div>
-                    <div className="text-gray-800">{item.vendor.instagram}</div>
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            <div className="mt-8 flex gap-3">
-              <Button className="h-11 px-5" onClick={() => setOpen(true)}>
-                {applyButtonLabel}
-              </Button>
+          {/* 가격 */}
+          {item.price && (
+            <div className="text-2xl font-bold text-gray-900 mb-7">
+              {formatPrice(item.price)}
             </div>
-          </div>
+          )}
+
+          {/* 상품 설명 */}
+          {item.description && (
+            <div className="mb-8">
+              <div className="text-xs text-gray-400 mb-2.5 font-medium">
+                상품 설명
+              </div>
+              <p className="text-sm text-gray-700 leading-relaxed">
+                {item.description}
+              </p>
+            </div>
+          )}
+
+          {/* 적용하기 버튼 */}
+          <button
+            onClick={() => setOpen(true)}
+            className="w-full py-4 rounded-xl font-semibold text-base text-white transition-all duration-200 hover:opacity-90 active:opacity-80 shadow-sm hover:shadow-md"
+            style={{ backgroundColor: 'rgba(255, 105, 147, 1)' }}
+          >
+            적용하기
+          </button>
         </div>
       </div>
 

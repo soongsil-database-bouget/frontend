@@ -10,6 +10,7 @@ function Layout() {
   const navigate = useNavigate()
   const hideHeader =
     /^\/(my|applied|others)\/\d+/.test(location.pathname) ||
+    /^\/bouquets\/\d+$/.test(location.pathname) ||
     location.pathname === '/mypage' ||
     location.pathname === '/login' ||
     location.pathname.startsWith('/auth/') ||
@@ -17,7 +18,9 @@ function Layout() {
     location.pathname === '/my/list' ||
     location.pathname === '/applied/list' ||
     location.pathname === '/others/list' ||
-    location.pathname === '/recommendations'
+    location.pathname === '/recommendations' ||
+    location.pathname === '/recommend' ||
+    location.pathname === '/result'
   const clearToken = () => {
     try {
       localStorage.removeItem('accessToken')

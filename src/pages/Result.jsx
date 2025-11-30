@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { useLocation, Link } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { getRecommendationDetail, getRecommendationHistory } from '../api/recommendations'
 import { RAW_TO_KO_LABEL, getTagChipClasses, extractCategoryTags } from '../utils/tagLabels'
+import BackBar from '../components/BackBar'
 
 function useQuery() {
   const { search } = useLocation()
@@ -51,10 +52,14 @@ export default function Result() {
         id: b.id,
         imageUrl: b.imageUrl,
         title: b.name,
+        description: b.description || '',
         tags: extractCategoryTags(b.categories),
       }
     })
   }, [session])
+
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const navigate = useNavigate()
 
   const optionChips = useMemo(() => {
     if (!session) return []
@@ -66,36 +71,23 @@ export default function Result() {
     ].filter(Boolean)
   }, [session])
 
+  const currentItem = items[currentIndex] || null
+
+  const handlePrev = () => {
+    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : items.length - 1))
+  }
+
+  const handleNext = () => {
+    setCurrentIndex((prev) => (prev < items.length - 1 ? prev + 1 : 0))
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50/30 via-white to-purple-50/20">
-      {/* 상단 헤더 섹션 */}
-      <div className="bg-gradient-to-r from-pink-500 via-rose-500 to-purple-500 text-white">
-        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
-          <div className="max-w-4xl mx-auto text-center">
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold mb-4 tracking-tight">
-              당신을 위한 추천 결과
-            </h1>
-            <p className="text-pink-100 text-sm sm:text-base mb-8">
-              선택하신 옵션에 맞춘 특별한 부케를 찾아드렸어요
-            </p>
-            {optionChips.length > 0 && (
-              <div className="flex flex-wrap justify-center gap-3">
-                {optionChips.map((label, idx) => (
-                  <div
-                    key={idx}
-                    className="px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full border border-white/30 text-sm font-medium shadow-lg"
-                  >
-                    {label}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+    <div className="min-h-screen bg-white">
+      {/* 상단 네비게이션 바 */}
+      <BackBar title="추천받기" />
 
       {/* 메인 콘텐츠 */}
-      <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
+      <div className="max-w-md mx-auto px-4 py-8">
         {loading && (
           <div className="py-20 text-center">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-pink-500 border-t-transparent"></div>
@@ -112,82 +104,98 @@ export default function Result() {
           </div>
         )}
 
-        {!loading && !error && items.length > 0 && (
-          <div className="space-y-8 sm:space-y-12">
-            {items.map((item, index) => (
-              <div
-                key={item.id}
-                className="group relative"
-                style={{
-                  animationDelay: `${index * 100}ms`,
-                }}
-              >
-                <Link
-                  to={`/bouquets/${item.id}`}
-                  className="block overflow-hidden rounded-3xl bg-white shadow-xl hover:shadow-2xl transition-all duration-500 border border-gray-100"
-                >
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
-                    {/* 이미지 섹션 */}
-                    <div className="relative aspect-[4/3] lg:aspect-auto lg:h-[400px] overflow-hidden bg-gradient-to-br from-pink-100 to-purple-100">
-                      <img
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                        src={item.imageUrl}
-                        alt={item.title}
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
-                      {/* 순위 배지 */}
-                      <div className="absolute top-6 left-6">
-                        <div className="flex items-center justify-center w-12 h-12 rounded-full bg-white/95 backdrop-blur-sm shadow-lg">
-                          <span className="text-xl font-bold text-pink-600">#{index + 1}</span>
-                        </div>
-                      </div>
-                    </div>
+        {!loading && !error && currentItem && (
+          <div className="space-y-8">
+            {/* 부케 카드 */}
+            <div className="relative">
+              {/* 좌우 화살표 버튼 */}
+              {items.length > 1 && (
+                <>
+                  <button
+                    onClick={handlePrev}
+                    className="absolute -left-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95"
+                    style={{ backgroundColor: 'rgba(255, 244, 246, 1)' }}
+                    aria-label="이전 부케"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255, 105, 147, 1)" strokeWidth="2.5">
+                      <path d="M15 18l-6-6 6-6" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={handleNext}
+                    className="absolute -right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95"
+                    style={{ backgroundColor: 'rgba(255, 244, 246, 1)' }}
+                    aria-label="다음 부케"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255, 105, 147, 1)" strokeWidth="2.5">
+                      <path d="M9 18l6-6-6-6" />
+                    </svg>
+                  </button>
+                </>
+              )}
 
-                    {/* 정보 섹션 */}
-                    <div className="p-8 sm:p-10 lg:p-12 flex flex-col justify-center">
-                      <div className="mb-4">
-                        <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-900 mb-3 group-hover:text-pink-600 transition-colors">
-                          {item.title}
-                        </h2>
-                        <div className="w-16 h-1 bg-gradient-to-r from-pink-500 to-purple-500 rounded-full"></div>
-                      </div>
-
-                      {item.tags && item.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mb-6">
-                          {item.tags.map((tag, tagIdx) => (
-                            <span
-                              key={tagIdx}
-                              className="px-3 py-1.5 rounded-full text-xs font-medium bg-pink-50 text-pink-700 border border-pink-200"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-
-                      <div className="mt-auto pt-6">
-                        <div className="inline-flex items-center text-pink-600 font-semibold group-hover:gap-3 transition-all">
-                          <span>자세히 보기</span>
-                          <svg
-                            className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M17 8l4 4m0 0l-4 4m4-4H3"
-                            />
-                          </svg>
-                        </div>
-                      </div>
-                    </div>
+              {/* 부케 카드 */}
+              <div className="max-w-xs mx-auto rounded-2xl border-2 overflow-hidden bg-white" style={{ borderColor: 'rgba(255, 192, 203, 0.4)' }}>
+                <div className="bg-white p-4 aspect-square flex items-center justify-center">
+                  <div className="w-full h-full aspect-square">
+                    <img
+                      src={currentItem.imageUrl}
+                      alt={currentItem.title}
+                      className="w-full h-full object-cover rounded-xl border border-gray-100"
+                    />
                   </div>
-                </Link>
+                </div>
+                <div className="bg-white px-4 pt-3 pb-5 text-center">
+                  <h2 className="text-lg font-bold text-gray-900 mb-2.5 leading-tight">
+                    {currentItem.title}
+                  </h2>
+                  {currentItem.description && (
+                    <div className="space-y-1">
+                      <p className="text-sm text-gray-500 leading-relaxed">{currentItem.description.split('\n')[0] || currentItem.description}</p>
+                      {currentItem.description.split('\n')[1] && (
+                        <p className="text-sm text-gray-500 leading-relaxed">{currentItem.description.split('\n')[1]}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-            ))}
+
+              {/* 페이지네이션 도트 */}
+              {items.length > 1 && (
+                <div className="flex justify-center gap-2.5 mt-5">
+                  {items.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setCurrentIndex(index)}
+                      className={`rounded-full transition-all duration-200 ${
+                        index === currentIndex 
+                          ? 'w-2.5 h-2 bg-pink-500' 
+                          : 'w-2 h-2 bg-gray-300 hover:bg-gray-400'
+                      }`}
+                      aria-label={`${index + 1}번째 부케로 이동`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 하단 버튼 */}
+            <div className="space-y-3 pt-2 pb-6">
+              <button
+                onClick={() => navigate('/recommendations')}
+                className="w-full py-3.5 rounded-xl font-semibold text-sm text-white transition-all duration-200 hover:opacity-90 active:opacity-80 shadow-sm hover:shadow-md"
+                style={{ backgroundColor: 'rgba(255, 105, 147, 1)' }}
+              >
+                추천받은 부케 목록 보러가기
+              </button>
+              <button
+                onClick={() => navigate('/')}
+                className="w-full py-3.5 rounded-xl font-semibold text-sm text-white transition-all duration-200 hover:opacity-90 active:opacity-80 shadow-sm hover:shadow-md"
+                style={{ backgroundColor: 'rgba(255, 105, 147, 1)' }}
+              >
+                완료하기
+              </button>
+            </div>
           </div>
         )}
       </div>

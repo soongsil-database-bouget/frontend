@@ -1,8 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { getRecommendationHistory } from '../api/recommendations'
-import BouquetCard from '../components/BouquetCard'
-import { RAW_TO_KO_LABEL, getTagChipClasses } from '../utils/tagLabels'
+import { extractCategoryTags, RAW_TO_KO_LABEL } from '../utils/tagLabels'
 import BackBar from '../components/BackBar'
 
 export default function Recommendations() {
@@ -11,7 +10,118 @@ export default function Recommendations() {
   const [hasMore, setHasMore] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 3
   const sentinelRef = useRef(null)
+  const touchStartX = useRef(0)
+  const touchEndX = useRef(0)
+  const containerRef = useRef(null)
+
+  // 세션별로 그룹화된 부케 리스트 생성
+  const groupedSessions = useMemo(() => {
+    return sessions
+      .filter((session) => session.items && session.items.length > 0)
+      .map((session) => {
+        const sessionTags = [
+          session.season && RAW_TO_KO_LABEL[session.season],
+          session.dressMood && RAW_TO_KO_LABEL[session.dressMood],
+          session.weddingColor && RAW_TO_KO_LABEL[session.weddingColor],
+          session.bouquetAtmosphere && RAW_TO_KO_LABEL[session.bouquetAtmosphere],
+        ].filter(Boolean)
+
+        const bouquets = session.items.map((item) => {
+          const bouquet = item.bouquet || {}
+          return {
+            id: item.id || bouquet.id,
+            imageUrl: bouquet.imageUrl,
+            title: bouquet.name || '부케',
+            description: bouquet.description || '',
+            tags: extractCategoryTags(bouquet.categories || []),
+            sessionId: session.id,
+          }
+        })
+
+        return {
+          sessionId: session.id,
+          sessionTags,
+          bouquets,
+        }
+      })
+  }, [sessions])
+
+  // 모든 부케를 평탄화하여 페이지네이션 계산
+  const allBouquets = useMemo(() => {
+    const bouquets = []
+    groupedSessions.forEach((group) => {
+      bouquets.push(...group.bouquets)
+    })
+    return bouquets
+  }, [groupedSessions])
+
+  const totalPages = Math.ceil(allBouquets.length / itemsPerPage)
+  const currentBouquets = allBouquets.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  )
+
+  // 현재 페이지의 부케들이 속한 세션 그룹 찾기
+  const currentSessionGroups = useMemo(() => {
+    if (currentBouquets.length === 0) return []
+    
+    const groups = []
+    const processedSessionIds = new Set()
+    
+    currentBouquets.forEach((bouquet) => {
+      if (!processedSessionIds.has(bouquet.sessionId)) {
+        const group = groupedSessions.find((g) => g.sessionId === bouquet.sessionId)
+        if (group) {
+          // 현재 페이지에 있는 부케들만 필터링
+          const bouquetsInPage = group.bouquets.filter((b) =>
+            currentBouquets.some((cb) => cb.id === b.id)
+          )
+          if (bouquetsInPage.length > 0) {
+            groups.push({
+              ...group,
+              bouquets: bouquetsInPage,
+            })
+            processedSessionIds.add(bouquet.sessionId)
+          }
+        }
+      }
+    })
+    
+    return groups
+  }, [currentBouquets, groupedSessions])
+
+  const handlePrev = () => {
+    setCurrentPage((prev) => (prev > 1 ? prev - 1 : totalPages))
+  }
+
+  const handleNext = () => {
+    setCurrentPage((prev) => (prev < totalPages ? prev + 1 : 1))
+  }
+
+  const handleTouchStart = (e) => {
+    touchStartX.current = e.touches[0].clientX
+  }
+
+  const handleTouchMove = (e) => {
+    touchEndX.current = e.touches[0].clientX
+  }
+
+  const handleTouchEnd = () => {
+    if (!touchStartX.current || !touchEndX.current) return
+    const distance = touchStartX.current - touchEndX.current
+    const isLeftSwipe = distance > 50
+    const isRightSwipe = distance < -50
+
+    if (isLeftSwipe && totalPages > 1) {
+      handleNext()
+    }
+    if (isRightSwipe && totalPages > 1) {
+      handlePrev()
+    }
+  }
 
   async function loadMore() {
     if (loading || !hasMore) return
@@ -54,94 +164,145 @@ export default function Recommendations() {
 
   return (
     <>
-      <BackBar title="내가 추천받은 부케" />
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-pink-50/30">
-        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-          <div className="space-y-8">
-            {sessions.map((session) => {
-              const chips = [
-                session.season && RAW_TO_KO_LABEL[session.season],
-                session.dressMood && RAW_TO_KO_LABEL[session.dressMood],
-                session.weddingColor && RAW_TO_KO_LABEL[session.weddingColor],
-                session.bouquetAtmosphere && RAW_TO_KO_LABEL[session.bouquetAtmosphere],
-              ].filter(Boolean)
-              const season = session.season
-              const seasonColors = {
-                SPRING: {
-                  bar: 'bg-gradient-to-b from-pink-500 via-rose-500 to-purple-500',
-                  tags: [
-                    'bg-gradient-to-r from-pink-500 to-rose-500',
-                    'bg-gradient-to-r from-purple-500 to-pink-500',
-                    'bg-gradient-to-r from-rose-500 to-pink-500',
-                    'bg-gradient-to-r from-pink-500 to-purple-500',
-                  ]
-                },
-                SUMMER: {
-                  bar: 'bg-gradient-to-b from-blue-500 via-cyan-500 to-teal-500',
-                  tags: [
-                    'bg-gradient-to-r from-blue-500 to-cyan-500',
-                    'bg-gradient-to-r from-cyan-500 to-teal-500',
-                    'bg-gradient-to-r from-teal-500 to-blue-500',
-                    'bg-gradient-to-r from-blue-500 to-teal-500',
-                  ]
-                },
-                FALL: {
-                  bar: 'bg-gradient-to-b from-orange-500 via-amber-500 to-yellow-500',
-                  tags: [
-                    'bg-gradient-to-r from-orange-500 to-amber-500',
-                    'bg-gradient-to-r from-amber-500 to-yellow-500',
-                    'bg-gradient-to-r from-yellow-500 to-orange-500',
-                    'bg-gradient-to-r from-orange-500 to-yellow-500',
-                  ]
-                },
-                WINTER: {
-                  bar: 'bg-gradient-to-b from-purple-500 via-indigo-500 to-blue-500',
-                  tags: [
-                    'bg-gradient-to-r from-purple-500 to-indigo-500',
-                    'bg-gradient-to-r from-indigo-500 to-blue-500',
-                    'bg-gradient-to-r from-blue-500 to-purple-500',
-                    'bg-gradient-to-r from-purple-500 to-blue-500',
-                  ]
-                }
-              }
-              const colors = seasonColors[season] || seasonColors.SPRING
-              return (
-                <div key={session.id} className="rounded-3xl overflow-hidden bg-white shadow-xl border border-gray-100 relative">
-                  <div className={`absolute left-0 top-0 bottom-0 w-1 ${colors.bar}`}></div>
-                  {/* 옵션 강조 섹션 */}
-                  <div className="bg-white p-4 sm:p-5">
-                    <div className="flex items-center flex-wrap gap-3 pl-4">
-                      {chips.map((label, idx) => (
-                        <span
-                          key={idx}
-                          className={`px-4 py-2 ${colors.tags[idx % colors.tags.length]} rounded-full text-sm font-semibold text-white shadow-md`}
+      <BackBar title="추천 받은 부케 목록" />
+      <div className="min-h-screen bg-white">
+        <div className="max-w-md mx-auto px-4 py-6">
+          {allBouquets.length === 0 && !loading && !error && (
+            <div className="py-20 text-center">
+              <p className="text-gray-500">추천받은 부케가 없습니다.</p>
+            </div>
+          )}
+
+          {currentSessionGroups.length > 0 && (
+            <div
+              ref={containerRef}
+              className="relative"
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+            >
+              {/* 세션 그룹별 부케 카드 리스트 */}
+              <div className="space-y-6">
+                {currentSessionGroups.map((group, groupIdx) => (
+                  <div key={group.sessionId || groupIdx} className="space-y-3">
+                    {/* 세션 태그 - 배경 박스 스타일 */}
+                    {group.sessionTags && group.sessionTags.length > 0 && (
+                      <div 
+                        className="px-4 py-2.5 rounded-lg"
+                        style={{
+                          backgroundColor: 'rgba(255, 244, 246, 0.5)',
+                          border: '1px solid rgba(248, 180, 202, 0.25)',
+                        }}
+                      >
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                          {group.sessionTags.map((tag, idx) => (
+                            <span
+                              key={idx}
+                              className="text-sm font-semibold"
+                              style={{ color: 'rgba(255, 105, 147, 1)' }}
+                            >
+                              #{tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* 부케 카드들 */}
+                    <div className="space-y-4">
+                      {group.bouquets.map((bouquet) => (
+                        <Link
+                          key={bouquet.id}
+                          to={`/bouquets/${bouquet.id}`}
+                          className="block"
                         >
-                          {label}
-                        </span>
+                          <div className="rounded-xl border border-gray-200 overflow-hidden bg-white hover:shadow-md transition-all duration-200 hover:border-gray-300">
+                            <div className="flex gap-4 p-4">
+                              {/* 왼쪽 이미지 */}
+                              <div className="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden bg-gray-100">
+                                <img
+                                  src={bouquet.imageUrl}
+                                  alt={bouquet.title}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                              {/* 오른쪽 텍스트 */}
+                              <div className="flex-1 min-w-0 flex flex-col justify-center">
+                                <h3 className="text-base font-bold text-gray-900 mb-1.5 line-clamp-1">
+                                  {bouquet.title}
+                                </h3>
+                                <p className="text-sm text-gray-500 mb-2 line-clamp-2 leading-relaxed">
+                                  {bouquet.description || '아름다운 부케입니다.'}
+                                </p>
+                                {/* 해시태그 - 회색 스타일 */}
+                                {bouquet.tags && bouquet.tags.length > 0 && (
+                                  <div className="flex flex-wrap gap-1.5 mt-1">
+                                    {bouquet.tags.slice(0, 3).map((tag, idx) => (
+                                      <span
+                                        key={idx}
+                                        className="text-xs text-gray-400 font-medium"
+                                      >
+                                        #{tag}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </Link>
                       ))}
                     </div>
                   </div>
-                  {/* 부케 카드 섹션 */}
-                  <div className="p-6 sm:p-8 pl-7 sm:pl-9">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 sm:gap-6">
-                      {(session.items || []).slice(0, 3).map((it) => {
-                        const b = it.bouquet || {}
-                        return (
-                          <BouquetCard
-                            key={it.id}
-                            imageUrl={b.imageUrl}
-                            title={b.name}
-                            tags={[]}
-                            to={`/bouquets/${b.id}`}
-                          />
-                        )
-                      })}
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 하단 네비게이션: 좌우 버튼 및 페이지네이션 도트 */}
+          {totalPages > 1 && (
+            <div className="relative flex justify-between items-center mt-6 mb-4">
+              {/* 좌측 화살표 버튼 */}
+              <button
+                onClick={handlePrev}
+                className="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 flex-shrink-0"
+                style={{ backgroundColor: 'rgba(255, 244, 246, 1)' }}
+                aria-label="이전 페이지"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255, 105, 147, 1)" strokeWidth="2.5">
+                  <path d="M15 18l-6-6 6-6" />
+                </svg>
+              </button>
+              
+              {/* 페이지네이션 도트 - 중앙 고정 */}
+              <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                  <button
+                    key={pageNum}
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`rounded-full transition-all duration-200 ${
+                      pageNum === currentPage
+                        ? 'w-2.5 h-2.5 bg-pink-500'
+                        : 'w-2 h-2 bg-gray-300 hover:bg-gray-400'
+                    }`}
+                    aria-label={`${pageNum}페이지로 이동`}
+                  />
+                ))}
+              </div>
+
+              {/* 우측 화살표 버튼 */}
+              <button
+                onClick={handleNext}
+                className="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 flex-shrink-0"
+                style={{ backgroundColor: 'rgba(255, 244, 246, 1)' }}
+                aria-label="다음 페이지"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255, 105, 147, 1)" strokeWidth="2.5">
+                  <path d="M9 18l6-6-6-6" />
+                </svg>
+              </button>
+            </div>
+          )}
 
           {error && (
             <div className="py-12 text-center">
@@ -158,9 +319,6 @@ export default function Recommendations() {
             </div>
           )}
           <div ref={sentinelRef} />
-          {!hasMore && !loading && sessions.length > 0 && (
-            <div className="py-12 text-center text-gray-400">마지막입니다.</div>
-          )}
         </div>
       </div>
     </>

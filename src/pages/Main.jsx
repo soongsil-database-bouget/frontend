@@ -269,12 +269,12 @@ export default function Main() {
             <div className="grid grid-cols-2 gap-4">
               {appliedPreview.map(item => (
                 <Link key={item.id} to={`/applied/${item.id}`} className="group overflow-hidden bg-white hover:opacity-90 transition-opacity duration-150">
-                  <div className="aspect-[4/3] overflow-hidden relative bg-gray-100">
-                    <img className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-200" src={item.imageUrl} alt={item.title} />
+                  <div className="aspect-[4/3] overflow-hidden relative bg-gray-100 rounded-[12px]">
+                    <img className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-200 rounded-[12px]" src={item.imageUrl} alt={item.title} />
                     {item.bouquetImageUrl && (
                       <div className="absolute top-2 right-2">
-                        <div className="w-12 h-12 rounded-md overflow-hidden ring-2 ring-white shadow-sm bg-white">
-                          <img className="w-full h-full object-cover" src={item.bouquetImageUrl} alt={`${item.title} 사용 부케`} />
+                        <div className="w-12 h-12 rounded-[12px] overflow-hidden ring-2 ring-white shadow-sm bg-white">
+                          <img className="w-full h-full object-cover rounded-[12px]" src={item.bouquetImageUrl} alt={`${item.title} 사용 부케`} />
                         </div>
                       </div>
                     )}
