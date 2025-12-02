@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import BouquetList from '../components/BouquetList'
 import BouquetCard from '../components/BouquetCard'
 import Button from '../components/Button'
+import Modal from '../components/Modal'
 import { getBouquets } from '../api/bouquet'
 import { getRecommendationHistory } from '../api/recommendations'
 import { extractCategoryTags, RAW_TO_KO_LABEL, getTagChipClasses } from '../utils/tagLabels'
@@ -34,16 +35,18 @@ export default function Main() {
   const [loadingSession, setLoadingSession] = useState(true)
   const [appliedPreview, setAppliedPreview] = useState([])
   const [loadingApplied, setLoadingApplied] = useState(true)
+  const [selectedBouquet, setSelectedBouquet] = useState(null)
+  const [modalOpen, setModalOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     ;(async () => {
       try {
         setLoadingPreview(true)
-        const res = await getBouquets({ page: 1, size: 3 })
+        const res = await getBouquets({ page: 1, size: 4 })
         const list = res?.bouquets ?? []
         if (!cancelled) {
-          const mapped = list.slice(0, 3).map((b) => {
+          const mapped = list.slice(0, 4).map((b) => {
             const rawTags = (b.categories || []).flatMap((c) => [
               c.season,
               c.dressMood,
@@ -58,6 +61,7 @@ export default function Main() {
             imageUrl: b.imageUrl,
             title: b.name,
             tags: displayTags,
+            price: b.price,
           }
           })
           setPreviewBouquets(mapped)
@@ -89,15 +93,16 @@ export default function Main() {
     ;(async () => {
       try {
         setLoadingApplied(true)
-        const res = await getVirtualFittingHistory({ page: 1, size: 3 })
+        const res = await getVirtualFittingHistory({ page: 1, size: 4 })
         const list = res?.items ?? []
         if (!cancelled) {
-          const mapped = list.slice(0, 3).map((v) => ({
+          const mapped = list.slice(0, 4).map((v) => ({
             id: v.id,
             imageUrl: v.genImageUrl || v.srcImageUrl || v.bouquet?.imageUrl,
             bouquetImageUrl: v.bouquet?.imageUrl,
             title: v.bouquet?.name || `적용 #${v.id}`,
             tags: extractCategoryTags(v.bouquet?.categories),
+            price: v.bouquet?.price ?? null,
           }))
           setAppliedPreview(mapped)
         }
@@ -108,52 +113,62 @@ export default function Main() {
     return () => { cancelled = true }
   }, [])
   return (
-    <div className="min-h-full">
-      <section className="relative min-h-[520px] grid items-center isolate">
+    <div className="min-h-full bg-gray-50">
+      <section className="relative min-h-[400px] grid items-center bg-black">
         <img
           className="absolute inset-0 w-full h-full object-cover"
           src="/웨딩배너3.avif"
-          alt=""
+          alt="웨딩 배너"
         />
-        <div className="absolute inset-0 bg-black/25" />
-        <div className="relative text-white text-center max-w-screen-xl mx-auto px-4">
-          <h1 className="m-0 text-3xl md:text-4xl font-black leading-snug">
-            어떤 부케가 잘 어울릴지
+        <div className="absolute inset-0 bg-black/40" />
+        <div className="relative text-white text-center max-w-md mx-auto px-4 py-16 z-10">
+          <h1 className="m-0 text-3xl md:text-4xl font-bold leading-snug mb-4">
+            어떤 부케가 잘 <span className="text-[#EB427B]">어울릴지</span>
             <br />
             고민이신가요?
           </h1>
-          <p className="mt-2 text-gray-100 font-medium">
+          <p className="mt-2 text-gray-400 font-medium mb-6">
             눌러서 부케 추천받기
-            <br />
-            아무데서 클릭!
           </p>
+          <button
+            onClick={() => navigate('/recommend')}
+            className="inline-flex items-center justify-center px-6 py-3 bg-black hover:bg-gray-800 text-white font-semibold rounded-lg transition-colors"
+          >
+            부케 추천받기
+          </button>
         </div>
-        <button
-          className="absolute inset-0 bg-transparent border-0 cursor-pointer"
-          aria-label="부케 추천 받기"
-          onClick={() => navigate('/recommend')}
-        ></button>
       </section>
 
-      <section className="py-9">
-        <div className="max-w-screen-2xl mx-auto px-6">
-          <div className="flex items-end justify-between gap-3 mb-4">
-            <h2 className="m-0 text-lg font-bold">전체 부케</h2>
-            <Link to="/bouquets" className="text-sm text-pink-600 font-semibold hover:underline">전체 보기</Link>
+      <section className="py-8 bg-white">
+        <div className="max-w-md mx-auto px-4">
+          <div className="flex items-end justify-between gap-3 mb-6">
+            <h2 className="m-0 text-xl font-bold text-black">전체 부케</h2>
+            <Link to="/bouquets" className="text-sm text-black font-semibold hover:text-gray-700 transition-colors">전체 보기</Link>
           </div>
           {loadingPreview ? (
-            <div className="py-8 text-center text-gray-500">불러오는 중…</div>
+            <div className="py-12 text-center text-gray-500">불러오는 중…</div>
           ) : (
-            <BouquetList items={previewBouquets} itemLinkBase="/bouquets" />
+            <div className="grid grid-cols-2 gap-4">
+              {previewBouquets.map((item) => (
+                <BouquetCard
+                  key={item.id}
+                  imageUrl={item.imageUrl}
+                  title={item.title}
+                  tags={item.tags}
+                  price={item.price}
+                  to={`/bouquets/${item.id}`}
+                />
+              ))}
+            </div>
           )}
         </div>
       </section>
 
-      <section className="py-9">
-        <div className="max-w-screen-2xl mx-auto px-6">
+      <section className="py-8 bg-gray-50">
+        <div className="max-w-md mx-auto px-4">
           <div className="flex items-end justify-between gap-3 mb-6">
-            <h2 className="m-0 text-lg font-bold">내가 추천받은 부케 묶음</h2>
-            <Link to="/recommendations" className="text-sm text-pink-600 font-semibold hover:underline">전체 보기</Link>
+            <h2 className="m-0 text-xl font-bold text-black">내가 추천받은 부케 묶음</h2>
+            <Link to="/recommendations" className="text-sm text-black font-semibold hover:text-gray-700 transition-colors">전체 보기</Link>
           </div>
           {loadingSession ? (
             <div className="py-8 text-center text-gray-500">불러오는 중…</div>
@@ -197,13 +212,11 @@ export default function Main() {
                 ]
               }
             }
-            const colors = seasonColors[season] || seasonColors.SPRING
             return (
-              <div className="rounded-3xl overflow-hidden bg-white shadow-xl border border-gray-100 relative">
-                <div className={`absolute left-0 top-0 bottom-0 w-1 ${colors.bar}`}></div>
+              <div className="overflow-hidden bg-white">
                 {/* 옵션 강조 섹션 */}
-                <div className="bg-white p-4 sm:p-5">
-                  <div className="flex items-center flex-wrap gap-3 pl-4">
+                <div className="bg-gray-50 p-4 border-b border-gray-200">
+                  <div className="flex items-center flex-wrap gap-2">
                     {[
                       latestSession.season && RAW_TO_KO_LABEL[latestSession.season],
                       latestSession.dressMood && RAW_TO_KO_LABEL[latestSession.dressMood],
@@ -212,25 +225,37 @@ export default function Main() {
                     ].filter(Boolean).map((label, idx) => (
                       <span
                         key={idx}
-                        className={`px-4 py-2 ${colors.tags[idx % colors.tags.length]} rounded-full text-sm font-semibold text-white shadow-md`}
+                        className="text-xs text-gray-600"
                       >
-                        {label}
+                        #{label}
                       </span>
                     ))}
                   </div>
                 </div>
                 {/* 부케 카드 섹션 */}
-                <div className="p-6 sm:p-8 pl-7 sm:pl-9">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 sm:gap-6">
-                    {(latestSession.items || []).slice(0, 3).map((it) => {
+                <div className="p-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    {(latestSession.items || []).slice(0, 4).map((it) => {
                       const b = it?.bouquet || {}
+                      const displayTags = extractCategoryTags(b.categories)
+                      const bouquetPrice = b?.price ?? null
                       return (
                         <BouquetCard
                           key={it.id}
                           imageUrl={b.imageUrl}
                           title={b.name}
-                          tags={[]}
-                          to={`/bouquets/${b.id}`}
+                          tags={displayTags}
+                          price={bouquetPrice}
+                          onClick={() => {
+                            setSelectedBouquet({
+                              id: b.id,
+                              imageUrl: b.imageUrl,
+                              title: b.name,
+                              description: b.description || '',
+                              tags: displayTags,
+                            })
+                            setModalOpen(true)
+                          }}
                         />
                       )
                     })}
@@ -239,39 +264,44 @@ export default function Main() {
               </div>
             )
           })() : (
-            <div className="py-8 text-center text-gray-500">추천 내역이 없습니다.</div>
+            <div className="py-12 text-center text-gray-500">추천 내역이 없습니다.</div>
           )}
         </div>
       </section>
 
-      <section className="py-9 bg-white">
-        <div className="max-w-screen-2xl mx-auto px-6">
-          <div className="flex items-end justify-between gap-3 mb-4">
-            <h2 className="m-0 text-lg font-bold">적용해본 부케</h2>
-            <Link to="/applied/list" className="text-sm text-pink-500 font-semibold hover:underline">전체 보기</Link>
+      <section className="py-8 bg-white">
+        <div className="max-w-md mx-auto px-4">
+          <div className="flex items-end justify-between gap-3 mb-6">
+            <h2 className="m-0 text-xl font-bold text-black">적용해본 부케</h2>
+            <Link to="/applied/list" className="text-sm text-black font-semibold hover:text-gray-700 transition-colors">전체 보기</Link>
           </div>
           {loadingApplied ? (
-            <div className="py-8 text-center text-gray-500">불러오는 중…</div>
+            <div className="py-12 text-center text-gray-500">불러오는 중…</div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-2 gap-4">
               {appliedPreview.map(item => (
-                <Link key={item.id} to={`/applied/${item.id}`} className="group overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-                  <div className="aspect-[4/3] overflow-hidden relative">
-                    <img className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform" src={item.imageUrl} alt={item.title} />
+                <Link key={item.id} to={`/applied/${item.id}`} className="group overflow-hidden bg-white hover:opacity-90 transition-opacity duration-150">
+                  <div className="aspect-[4/3] overflow-hidden relative bg-gray-100 rounded-[12px]">
+                    <img className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-200 rounded-[12px]" src={item.imageUrl} alt={item.title} />
                     {item.bouquetImageUrl && (
                       <div className="absolute top-2 right-2">
-                        <div className="w-16 h-16 rounded-lg overflow-hidden ring-2 ring-white shadow-md border border-gray-200 bg-white">
+                        <div className="w-12 h-12 rounded-full overflow-hidden ring-2 ring-white shadow-sm bg-white">
                           <img className="w-full h-full object-cover" src={item.bouquetImageUrl} alt={`${item.title} 사용 부케`} />
                         </div>
                       </div>
                     )}
                   </div>
-                  <div className="p-4">
-                    <div className="font-bold text-gray-900">{item.title}</div>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {item.tags.map((t, idx) => (
-                        <span key={idx} className={getTagChipClasses(t)}>
-                          {t}
+                  <div className="bg-white pt-3 space-y-1.5">
+                    <div className="font-medium text-gray-900 text-sm leading-tight line-clamp-2">{item.title}</div>
+                    {item.price !== null && item.price !== undefined && (
+                      <div>
+                        <span className="text-base font-bold text-black leading-none">{new Intl.NumberFormat('ko-KR').format(item.price)}원</span>
+                      </div>
+                    )}
+                    <div className="flex flex-wrap gap-x-1.5 gap-y-0.5 pt-0.5">
+                      {item.tags.slice(0, 2).map((t, idx) => (
+                        <span key={idx} className="text-xs text-gray-500 leading-relaxed">
+                          #{t}
                         </span>
                       ))}
                     </div>
@@ -292,6 +322,76 @@ export default function Main() {
           <BouquetList items={mockItems} itemLinkBase="/others" />
         </div>
       </section> */}
+
+      {/* 부케 선택 모달 */}
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)}>
+        {selectedBouquet && (
+          <div className="p-6">
+            {/* 헤더 */}
+            <div className="mb-5 text-center">
+              <h2 className="text-xl font-bold text-gray-900 mb-1.5">부케 선택</h2>
+              <p className="text-sm text-gray-500">원하는 작업을 선택해주세요</p>
+            </div>
+            
+            {/* 부케 카드 */}
+            <div className="mb-6 rounded-2xl overflow-hidden bg-white border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+              <div className="relative aspect-square bg-gradient-to-br from-pink-50 to-purple-50">
+                <img
+                  src={selectedBouquet.imageUrl}
+                  alt={selectedBouquet.title}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+              </div>
+              <div className="p-4">
+                <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-1">
+                  {selectedBouquet.title}
+                </h3>
+                {selectedBouquet.tags && selectedBouquet.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedBouquet.tags.slice(0, 3).map((tag, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
+                        style={{
+                          background: 'rgba(255, 244, 246, 1)',
+                          color: 'rgba(255, 105, 147, 1)',
+                        }}
+                      >
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 버튼 그룹 */}
+            <div className="flex flex-col gap-3">
+              <button
+                className="w-full h-12 rounded-xl font-semibold text-base text-white transition-all duration-200 hover:opacity-90 active:opacity-80 shadow-sm hover:shadow-md"
+                style={{ backgroundColor: 'rgba(255, 105, 147, 1)' }}
+                onClick={() => {
+                  navigate('/apply', { state: { bouquetId: selectedBouquet.id } })
+                  setModalOpen(false)
+                }}
+              >
+                적용하기
+              </button>
+              <Button
+                variant="outline"
+                className="w-full h-12 text-base font-semibold"
+                onClick={() => {
+                  navigate(`/bouquets/${selectedBouquet.id}`)
+                  setModalOpen(false)
+                }}
+              >
+                상세보기
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }

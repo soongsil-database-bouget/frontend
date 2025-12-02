@@ -1,14 +1,29 @@
 import React, { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import BackBar from '../components/BackBar'
-import { getMe } from '../api/user'
+import { getMe, logout } from '../api/user'
 import { getVirtualFittingHistory } from '../api/virtualFittings'
 
 export default function MyPage() {
+  const navigate = useNavigate()
   const [userInfo, setUserInfo] = useState(null)
   const [loadingUser, setLoadingUser] = useState(true)
   const [appliedPreview, setAppliedPreview] = useState([])
   const [loadingApplied, setLoadingApplied] = useState(true)
+
+  const handleLogout = async () => {
+    if (confirm('로그아웃 하시겠습니까?')) {
+      try {
+        await logout()
+        navigate('/login', { replace: true })
+      } catch (error) {
+        console.error('로그아웃 실패:', error)
+        // 에러가 발생해도 토큰은 삭제되었을 수 있으므로 로그인 페이지로 이동
+        localStorage.removeItem('accessToken')
+        navigate('/login', { replace: true })
+      }
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -122,6 +137,20 @@ export default function MyPage() {
               </svg>
             </div>
           </Link>
+        </section>
+
+        <section className="mt-6">
+          <button
+            onClick={handleLogout}
+            className="w-full rounded-2xl border-2 font-semibold text-base py-4 transition-all duration-200 hover:opacity-90"
+            style={{ 
+              backgroundColor: 'white',
+              borderColor: 'rgba(255, 105, 147, 1)',
+              color: 'rgba(255, 105, 147, 1)'
+            }}
+          >
+            로그아웃
+          </button>
         </section>
       </div>
     </>

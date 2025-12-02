@@ -42,7 +42,11 @@ export function formatCategoryTag(raw) {
 }
 
 export function extractCategoryTags(categories) {
-  const rawTags = (categories || []).flatMap((c) => [
+  // categories가 배열이 아닌 경우, 단일 객체를 배열로 변환
+  const cats = Array.isArray(categories) 
+    ? categories 
+    : (categories ? [categories] : [])
+  const rawTags = (cats || []).flatMap((c) => [
     c.season,
     c.dressMood,
     c.dressSilhouette,

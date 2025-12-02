@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import BouquetDetail from '../components/BouquetDetail'
 import { getBouquetDetail } from '../api/bouquet'
 import { extractCategoryTags } from '../utils/tagLabels'
+import BackBar from '../components/BackBar'
 
 export default function Bouquet() {
   const { id } = useParams()
@@ -34,22 +35,42 @@ export default function Bouquet() {
       imageUrl: detail.imageUrl,
       title: detail.name,
       description: detail.description,
+      price: detail.price,
       tags: displayTags,
-      vendor: detail.stores?.[0]
+      vendor: detail.store
         ? {
-            name: detail.stores[0].storeName,
-            address: detail.stores[0].storeUrl,
-            instagram: detail.stores[0].instagramId,
+            name: detail.store.storeName,
+            address: detail.store.storeUrl,
+            instagram: detail.store.instagramId,
           }
         : undefined,
     }
   }, [detail])
 
-  if (loading) return <div className="py-16 text-center text-gray-500">불러오는 중…</div>
-  if (error) return <div className="py-16 text-center text-red-600">상세를 불러오지 못했습니다.</div>
+  if (loading) {
+    return (
+      <>
+        <BackBar title="부케 상세" />
+        <div className="py-16 text-center text-gray-500">불러오는 중…</div>
+      </>
+    )
+  }
+  if (error) {
+    return (
+      <>
+        <BackBar title="부케 상세" />
+        <div className="py-16 text-center text-red-600">상세를 불러오지 못했습니다.</div>
+      </>
+    )
+  }
   if (!mapped) return null
 
-  return <BouquetDetail item={mapped} mode="others" />
+  return (
+    <>
+      <BackBar title="부케 상세" />
+      <BouquetDetail item={mapped} mode="others" />
+    </>
+  )
 }
 
 

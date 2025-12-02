@@ -67,9 +67,9 @@ export default function AppliedDetail() {
 
   return (
     <>
-      <BackBar title="적용 상세" />
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-pink-50/30">
-        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+      <BackBar title="적용 결과" />
+      <div className="min-h-screen bg-white pb-24">
+        <div className="max-w-md mx-auto px-4 pt-6">
           {loading && (
             <div className="py-20 text-center">
               <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-pink-500 border-t-transparent"></div>
@@ -78,103 +78,98 @@ export default function AppliedDetail() {
           )}
           {error && (
             <div className="py-20 text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mb-4">
-                <span className="text-2xl">⚠️</span>
-              </div>
-              <p className="text-red-600 text-lg font-medium">상세를 불러오지 못했습니다.</p>
+              <p className="text-red-600">상세를 불러오지 못했습니다.</p>
             </div>
           )}
           {!loading && !error && item && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-              {/* 왼쪽: 합성 결과 이미지 (강조) */}
-              <div className="lg:col-span-2">
-                <div className="relative rounded-3xl overflow-hidden bg-white shadow-2xl border border-gray-100">
-                  <div className="aspect-[4/3] lg:aspect-auto">
-                    <img
-                      className="w-full h-full object-contain lg:object-cover"
-                      src={item.resultImageUrl}
-                      alt={`${item.title} 합성 결과`}
-                    />
-                  </div>
-                  {/* 이미지 하단 그라데이션 오버레이 */}
-                  <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/40 via-black/10 to-transparent pointer-events-none" />
-                </div>
+            <>
+              {/* 제목 */}
+              <h1 className="text-2xl font-bold text-black mb-2">
+                완성되었습니다!
+              </h1>
+              
+              {/* 설명 */}
+              <p className="text-base text-black mb-6">
+                부케가 적용된 모습을 확인해보세요
+              </p>
+
+              {/* 결과 이미지 */}
+              <div className="w-full aspect-[3/3] rounded-xl border-2 overflow-hidden mb-6 relative"
+                style={{ borderColor: 'rgba(255, 105, 147, 1)' }}
+              >
+                <img 
+                  src={item.resultImageUrl} 
+                  alt="적용 결과" 
+                  className="w-full h-full object-cover"
+                />
               </div>
 
-              {/* 오른쪽: 부케 정보 및 액션 */}
-              <div className="space-y-6">
-                {/* 부케 정보 카드 */}
-                <div className="rounded-2xl bg-white border border-gray-200 shadow-lg p-5">
-                  <div className="mb-4">
-                    <h2 className="text-lg font-extrabold text-gray-900 mb-1">사용한 부케</h2>
-                    <div className="w-12 h-0.5 bg-gradient-to-r from-pink-500 to-purple-500 rounded-full"></div>
-                  </div>
+              {/* 부케 정보 카드 */}
+              <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm mb-6">
+                <div className="flex items-start gap-4">
+                  {/* 부케 이미지 썸네일 */}
+                  {item.bouquetImageUrl && (
+                    <div className="flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
+                      <img
+                        className="w-full h-full object-cover"
+                        src={item.bouquetImageUrl}
+                        alt={item.bouquetTitle}
+                      />
+                    </div>
+                  )}
                   
-                  {/* 모바일: 가로 레이아웃, 데스크톱: 세로 레이아웃 */}
-                  <div className="flex gap-4 lg:flex-col lg:gap-4">
-                    {/* 부케 이미지 */}
-                    <div className="flex-shrink-0 lg:w-full">
-                      <div className="w-24 h-24 sm:w-32 sm:h-32 lg:w-full lg:h-48 rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
-                        <img
-                          className="w-full h-full object-cover"
-                          src={item.bouquetImageUrl}
-                          alt={item.bouquetTitle}
-                        />
+                  {/* 부케 정보 */}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-base font-bold text-gray-900 mb-1 line-clamp-1">
+                      {item.bouquetTitle}
+                    </h3>
+                    {item.bouquetDescription && (
+                      <p className="text-sm text-gray-600 mb-2 line-clamp-2 leading-relaxed">
+                        {item.bouquetDescription}
+                      </p>
+                    )}
+                    {item.tags && item.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {item.tags.slice(0, 3).map((tag, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
+                            style={{
+                              background: 'rgba(255, 244, 246, 1)',
+                              color: 'rgba(255, 105, 147, 1)',
+                            }}
+                          >
+                            #{tag}
+                          </span>
+                        ))}
                       </div>
-                    </div>
-
-                    {/* 부케 정보 */}
-                    <div className="flex-1 min-w-0 lg:flex-none">
-                      <h3 className="text-base font-bold text-gray-900 mb-1 lg:truncate">{item.bouquetTitle}</h3>
-                      {item.bouquetDescription && (
-                        <p className="text-sm text-gray-600 leading-relaxed mb-2 lg:mb-3 line-clamp-2 lg:line-clamp-none">{item.bouquetDescription}</p>
-                      )}
-                      {item.vendorName && (
-                        <p className="text-xs text-gray-500 mb-2 lg:mb-3 truncate">📍 {item.vendorName}</p>
-                      )}
-                      {item.tags && item.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5">
-                          {item.tags.map((t, idx) => (
-                            <span
-                              key={idx}
-                              className={getTagChipClasses(t)}
-                            >
-                              {t}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* 액션 버튼들 */}
-                <div className="space-y-3">
-                  <Button
-                    className="w-full h-12 px-5 text-base font-semibold shadow-lg hover:shadow-xl transition-all"
-                    onClick={() => setOpen(true)}
-                  >
-                    다시 적용하기
-                  </Button>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Button
-                      variant="outline"
-                      className="h-11 px-4 font-semibold"
-                      onClick={handleShare}
-                    >
-                      공유하기
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="h-11 px-4 font-semibold text-red-600 border-red-300 hover:bg-red-50"
-                      onClick={handleDelete}
-                    >
-                      삭제
-                    </Button>
+                    )}
                   </div>
                 </div>
               </div>
-            </div>
+
+              {/* 하단 버튼 */}
+              <div className="space-y-3">
+                <button
+                  onClick={() => navigate('/applied/list')}
+                  className="w-full h-12 rounded-xl font-semibold text-base transition-all duration-200 border-2"
+                  style={{ 
+                    backgroundColor: 'white',
+                    borderColor: 'rgba(255, 105, 147, 1)',
+                    color: 'rgba(255, 105, 147, 1)'
+                  }}
+                >
+                  적용사진 모두 확인하기
+                </button>
+                <button
+                  onClick={() => navigate('/')}
+                  className="w-full h-12 rounded-xl font-semibold text-base text-white transition-all duration-200 hover:opacity-90"
+                  style={{ backgroundColor: 'rgba(255, 105, 147, 1)' }}
+                >
+                  홈으로 돌아가기
+                </button>
+              </div>
+            </>
           )}
         </div>
       </div>
