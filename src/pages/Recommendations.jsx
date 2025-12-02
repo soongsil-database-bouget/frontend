@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { getRecommendationHistory } from '../api/recommendations'
 import { extractCategoryTags, RAW_TO_KO_LABEL } from '../utils/tagLabels'
+import { getProxiedImageUrl } from '../utils/imageUrl'
 import BackBar from '../components/BackBar'
 import Modal from '../components/Modal'
 import Button from '../components/Button'
@@ -39,7 +40,7 @@ export default function Recommendations() {
           return {
             id: item.id || bouquet.id,
             bouquetId: item.bouquetId || bouquet.id, // 부케 상세 조회용 bouquetId
-            imageUrl: bouquet.imageUrl,
+            imageUrl: getProxiedImageUrl(bouquet.imageUrl),
             title: bouquet.name || '부케',
             description: bouquet.description || '',
             tags: extractCategoryTags(bouquet.categories || []),

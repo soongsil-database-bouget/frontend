@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import BouquetDetail from '../components/BouquetDetail'
 import { getBouquetDetail } from '../api/bouquet'
 import { extractCategoryTags } from '../utils/tagLabels'
+import { getProxiedImageUrl } from '../utils/imageUrl'
 import BackBar from '../components/BackBar'
 
 export default function Bouquet() {
@@ -32,7 +33,7 @@ export default function Bouquet() {
     const displayTags = extractCategoryTags(detail.categories)
     return {
       id: detail.id,
-      imageUrl: detail.imageUrl,
+      imageUrl: getProxiedImageUrl(detail.imageUrl),
       title: detail.name,
       description: detail.description,
       price: detail.price,

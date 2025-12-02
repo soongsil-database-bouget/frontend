@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { getRecommendationDetail, getRecommendationHistory } from '../api/recommendations'
 import { RAW_TO_KO_LABEL, getTagChipClasses, extractCategoryTags } from '../utils/tagLabels'
+import { getProxiedImageUrl } from '../utils/imageUrl'
 import BackBar from '../components/BackBar'
 
 function useQuery() {
@@ -50,7 +51,7 @@ export default function Result() {
       const b = it.bouquet || {}
       return {
         id: b.id,
-        imageUrl: b.imageUrl,
+        imageUrl: getProxiedImageUrl(b.imageUrl),
         title: b.name,
         description: b.description || '',
         tags: extractCategoryTags(b.categories),

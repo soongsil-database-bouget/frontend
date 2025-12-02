@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import BouquetList from '../components/BouquetList'
 import { getBouquets } from '../api/bouquet'
 import { extractCategoryTags, RAW_TO_KO_LABEL } from '../utils/tagLabels'
+import { getProxiedImageUrl } from '../utils/imageUrl'
 import BackBar from '../components/BackBar'
 
 export default function Bouquets() {
@@ -76,7 +77,7 @@ export default function Bouquets() {
         const displayTags = extractCategoryTags(b.categories || [])
         return {
         id: b.id,
-        imageUrl: b.imageUrl,
+        imageUrl: getProxiedImageUrl(b.imageUrl),
         title: b.name,
         price: b.price,
         vendor: b.store ? { name: b.store.storeName } : undefined,
