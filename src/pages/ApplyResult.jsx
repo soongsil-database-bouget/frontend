@@ -35,9 +35,10 @@ export default function ApplyResult() {
         
         const result = await createVirtualFitting(formData)
         if (result?.genImageUrl) {
-          setResultImage(result.genImageUrl)
+          const proxiedImageUrl = getProxiedImageUrl(result.genImageUrl)
+          setResultImage(proxiedImageUrl)
           addAppliedHistory({ 
-            imageUrl: result.genImageUrl, 
+            imageUrl: proxiedImageUrl, 
             title: '적용 결과',
             bouquetId: bouquetId
           })

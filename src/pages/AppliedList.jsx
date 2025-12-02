@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import BackBar from '../components/BackBar'
 import { getVirtualFittingHistory } from '../api/virtualFittings'
 import { extractCategoryTags } from '../utils/tagLabels'
+import { getProxiedImageUrl } from '../utils/imageUrl'
 
 export default function AppliedList() {
   const navigate = useNavigate()
@@ -24,8 +25,8 @@ export default function AppliedList() {
             const b = v.bouquet || {}
             return {
               id: v.id,
-              imageUrl: v.genImageUrl || v.srcImageUrl || b.imageUrl,
-              bouquetImageUrl: b.imageUrl,
+              imageUrl: getProxiedImageUrl(v.genImageUrl || v.srcImageUrl || b.imageUrl),
+              bouquetImageUrl: getProxiedImageUrl(b.imageUrl),
               title: b.name || `적용 #${v.id}`,
               tags: extractCategoryTags(b.categories),
             }

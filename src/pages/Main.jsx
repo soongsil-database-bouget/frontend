@@ -8,6 +8,7 @@ import { getBouquets } from '../api/bouquet'
 import { getRecommendationHistory } from '../api/recommendations'
 import { extractCategoryTags, RAW_TO_KO_LABEL, getTagChipClasses } from '../utils/tagLabels'
 import { getVirtualFittingHistory } from '../api/virtualFittings'
+import { getProxiedImageUrl } from '../utils/imageUrl'
 
 function ChatIcon() {
   return (
@@ -58,7 +59,7 @@ export default function Main() {
             const displayTags = extractCategoryTags(b.categories)
             return {
             id: b.id,
-            imageUrl: b.imageUrl,
+            imageUrl: getProxiedImageUrl(b.imageUrl),
             title: b.name,
             tags: displayTags,
             price: b.price,
@@ -98,8 +99,8 @@ export default function Main() {
         if (!cancelled) {
           const mapped = list.slice(0, 4).map((v) => ({
             id: v.id,
-            imageUrl: v.genImageUrl || v.srcImageUrl || v.bouquet?.imageUrl,
-            bouquetImageUrl: v.bouquet?.imageUrl,
+            imageUrl: getProxiedImageUrl(v.genImageUrl || v.srcImageUrl || v.bouquet?.imageUrl),
+            bouquetImageUrl: getProxiedImageUrl(v.bouquet?.imageUrl),
             title: v.bouquet?.name || `적용 #${v.id}`,
             tags: extractCategoryTags(v.bouquet?.categories),
             price: v.bouquet?.price ?? null,
@@ -245,7 +246,7 @@ export default function Main() {
                       return (
                         <BouquetCard
                           key={it.id}
-                          imageUrl={b.imageUrl}
+                          imageUrl={getProxiedImageUrl(b.imageUrl)}
                           title={b.name}
                           tags={displayTags}
                           price={bouquetPrice}
@@ -253,7 +254,7 @@ export default function Main() {
                             setSelectedBouquet({
                               id: b.id,
                               bouquetId: it.bouquetId || b.id, // 부케 상세 조회용 bouquetId
-                              imageUrl: b.imageUrl,
+                              imageUrl: getProxiedImageUrl(b.imageUrl),
                               title: b.name,
                               description: b.description || '',
                               tags: displayTags,

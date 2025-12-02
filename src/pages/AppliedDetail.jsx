@@ -6,6 +6,7 @@ import Modal from '../components/Modal'
 import UploadDropzone from '../components/UploadDropzone'
 import { getVirtualFittingDetail } from '../api/virtualFittings'
 import { extractCategoryTags, getTagChipClasses } from '../utils/tagLabels'
+import { getProxiedImageUrl } from '../utils/imageUrl'
 
 export default function AppliedDetail() {
   const navigate = useNavigate()
@@ -38,8 +39,8 @@ export default function AppliedDetail() {
     return {
       id: detail.id,
       title: b.name || `적용 #${detail.id}`,
-      resultImageUrl: detail.genImageUrl || detail.srcImageUrl,
-      bouquetImageUrl: b.imageUrl,
+      resultImageUrl: getProxiedImageUrl(detail.genImageUrl || detail.srcImageUrl),
+      bouquetImageUrl: getProxiedImageUrl(b.imageUrl),
       bouquetTitle: b.name,
       bouquetDescription: b.description,
       vendorName: b.stores?.[0]?.storeName,

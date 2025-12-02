@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import BackBar from '../components/BackBar'
 import { getMe, logout } from '../api/user'
 import { getVirtualFittingHistory } from '../api/virtualFittings'
+import { getProxiedImageUrl } from '../utils/imageUrl'
 
 export default function MyPage() {
   const navigate = useNavigate()
@@ -56,7 +57,7 @@ export default function MyPage() {
         if (!cancelled) {
           const mapped = list.map((v) => ({
             id: v.id,
-            imageUrl: v.genImageUrl || v.srcImageUrl || v.bouquet?.imageUrl,
+            imageUrl: getProxiedImageUrl(v.genImageUrl || v.srcImageUrl || v.bouquet?.imageUrl),
             title: v.bouquet?.name || `적용 #${v.id}`,
           }))
           setAppliedPreview(mapped)
@@ -81,7 +82,7 @@ export default function MyPage() {
           <div className="flex items-center gap-4">
             {userInfo?.profileImageUrl ? (
               <img 
-                src={userInfo.profileImageUrl} 
+                src={getProxiedImageUrl(userInfo.profileImageUrl)} 
                 alt={userInfo.name || '프로필'} 
                 className="w-16 h-16 rounded-full ring-2 ring-pink-100 object-cover"
               />
