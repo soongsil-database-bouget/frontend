@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { getMe } from '../api/user'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -11,11 +12,40 @@ export default function Login() {
       ? import.meta.env.VITE_KAKAO_REDIRECT_URI
       : runtimeRedirect
 
-  // If token exists, go to home immediately
+  // 실제 인증 상태 확인 후 메인으로 이동
   useEffect(() => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
-    if (token) {
-      navigate('/', { replace: true })
+    let cancelled = false
+
+    const checkAuth = async () => {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
+      
+      // 토큰 형식 검증
+      if (!token || typeof token !== 'string' || token.trim() === '' || token === 'session_active' || token.length < 10) {
+        return
+      }
+
+      // 실제 서버에서 인증 상태 확인
+      try {
+        await getMe()
+        // 인증 성공 시에만 메인으로 이동
+        if (!cancelled) {
+          navigate('/', { replace: true })
+        }
+      } catch (error) {
+        // 인증 실패 시 토큰 삭제하고 로그인 페이지에 머물기
+        if (error?.response?.status === 401 || !error?.response) {
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('accessToken')
+          }
+        }
+        // 로그인 페이지에 머물기 (아무것도 하지 않음)
+      }
+    }
+
+    checkAuth()
+
+    return () => {
+      cancelled = true
     }
   }, [navigate])
 

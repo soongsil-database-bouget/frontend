@@ -8,7 +8,7 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   // 토큰을 헤더에 자동 추가
   const token = localStorage.getItem('accessToken')
-  if (token) {
+  if (token && token.trim() !== '' && token !== 'session_active') {
     config.headers.Authorization = `Bearer ${token}`
   }
   return config
@@ -16,7 +16,14 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (res) => res,
-  (err) => Promise.reject(err)
+  (err) => {
+    // 401 Unauthorized 에러 발생 시 토큰만 삭제
+    // 리다이렉트는 ProtectedRoute나 각 컴포넌트에서 처리하도록 함
+    if (err.response?.status === 401) {
+      localStorage.removeItem('accessToken')
+    }
+    return Promise.reject(err)
+  }
 )
 
 export default api
