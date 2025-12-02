@@ -1,10 +1,13 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { getRecommendationHistory } from '../api/recommendations'
 import { extractCategoryTags, RAW_TO_KO_LABEL } from '../utils/tagLabels'
 import BackBar from '../components/BackBar'
+import Modal from '../components/Modal'
+import Button from '../components/Button'
 
 export default function Recommendations() {
+  const navigate = useNavigate()
   const [sessions, setSessions] = useState([])
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
@@ -16,6 +19,8 @@ export default function Recommendations() {
   const touchStartX = useRef(0)
   const touchEndX = useRef(0)
   const containerRef = useRef(null)
+  const [selectedBouquet, setSelectedBouquet] = useState(null)
+  const [modalOpen, setModalOpen] = useState(false)
 
   // 세션별로 그룹화된 부케 리스트 생성
   const groupedSessions = useMemo(() => {
@@ -196,8 +201,8 @@ export default function Recommendations() {
                       >
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                           {group.sessionTags.map((tag, idx) => (
-                            <span
-                              key={idx}
+                        <span
+                          key={idx}
                               className="text-sm font-semibold"
                               style={{ color: 'rgba(255, 105, 147, 1)' }}
                             >
@@ -211,52 +216,53 @@ export default function Recommendations() {
                     {/* 부케 카드들 */}
                     <div className="space-y-4">
                       {group.bouquets.map((bouquet) => (
-                        <Link
+                        <div
                           key={bouquet.id}
-                          to={`/bouquets/${bouquet.id}`}
-                          className="block"
+                          onClick={() => {
+                            setSelectedBouquet(bouquet)
+                            setModalOpen(true)
+                          }}
+                          className="cursor-pointer rounded-xl border border-gray-200 overflow-hidden bg-white hover:shadow-md transition-all duration-200 hover:border-gray-300"
                         >
-                          <div className="rounded-xl border border-gray-200 overflow-hidden bg-white hover:shadow-md transition-all duration-200 hover:border-gray-300">
-                            <div className="flex gap-4 p-4">
-                              {/* 왼쪽 이미지 */}
-                              <div className="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden bg-gray-100">
-                                <img
-                                  src={bouquet.imageUrl}
-                                  alt={bouquet.title}
-                                  className="w-full h-full object-cover"
-                                />
-                              </div>
-                              {/* 오른쪽 텍스트 */}
-                              <div className="flex-1 min-w-0 flex flex-col justify-center">
-                                <h3 className="text-base font-bold text-gray-900 mb-1.5 line-clamp-1">
-                                  {bouquet.title}
-                                </h3>
-                                <p className="text-sm text-gray-500 mb-2 line-clamp-2 leading-relaxed">
-                                  {bouquet.description || '아름다운 부케입니다.'}
-                                </p>
-                                {/* 해시태그 - 회색 스타일 */}
-                                {bouquet.tags && bouquet.tags.length > 0 && (
-                                  <div className="flex flex-wrap gap-1.5 mt-1">
-                                    {bouquet.tags.slice(0, 3).map((tag, idx) => (
-                                      <span
-                                        key={idx}
-                                        className="text-xs text-gray-400 font-medium"
-                                      >
-                                        #{tag}
-                                      </span>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
+                          <div className="flex gap-4 p-4">
+                            {/* 왼쪽 이미지 */}
+                            <div className="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden bg-gray-100">
+                              <img
+                                src={bouquet.imageUrl}
+                                alt={bouquet.title}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            {/* 오른쪽 텍스트 */}
+                            <div className="flex-1 min-w-0 flex flex-col justify-center">
+                              <h3 className="text-base font-bold text-gray-900 mb-1.5 line-clamp-1">
+                                {bouquet.title}
+                              </h3>
+                              <p className="text-sm text-gray-500 mb-2 line-clamp-2 leading-relaxed">
+                                {bouquet.description || '아름다운 부케입니다.'}
+                              </p>
+                              {/* 해시태그 - 회색 스타일 */}
+                              {bouquet.tags && bouquet.tags.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 mt-1">
+                                  {bouquet.tags.slice(0, 3).map((tag, idx) => (
+                                    <span
+                                      key={idx}
+                                      className="text-xs text-gray-400 font-medium"
+                                    >
+                                      #{tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           </div>
-                        </Link>
+                        </div>
                       ))}
                     </div>
                   </div>
                 ))}
-              </div>
-            </div>
+                    </div>
+                  </div>
           )}
 
           {/* 하단 네비게이션: 좌우 버튼 및 페이지네이션 도트 */}
@@ -288,7 +294,7 @@ export default function Recommendations() {
                     aria-label={`${pageNum}페이지로 이동`}
                   />
                 ))}
-              </div>
+          </div>
 
               {/* 우측 화살표 버튼 */}
               <button
@@ -321,6 +327,76 @@ export default function Recommendations() {
           <div ref={sentinelRef} />
         </div>
       </div>
+
+      {/* 부케 선택 모달 */}
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)}>
+        {selectedBouquet && (
+          <div className="p-6">
+            {/* 헤더 */}
+            <div className="mb-5 text-center">
+              <h2 className="text-xl font-bold text-gray-900 mb-1.5">부케 선택</h2>
+              <p className="text-sm text-gray-500">원하는 작업을 선택해주세요</p>
+            </div>
+            
+            {/* 부케 카드 */}
+            <div className="mb-6 rounded-2xl overflow-hidden bg-white border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+              <div className="relative aspect-square bg-gradient-to-br from-pink-50 to-purple-50">
+                <img
+                  src={selectedBouquet.imageUrl}
+                  alt={selectedBouquet.title}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+              </div>
+              <div className="p-4">
+                <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-1">
+                  {selectedBouquet.title}
+                </h3>
+                {selectedBouquet.tags && selectedBouquet.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedBouquet.tags.slice(0, 3).map((tag, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
+                        style={{
+                          background: 'rgba(255, 244, 246, 1)',
+                          color: 'rgba(255, 105, 147, 1)',
+                        }}
+                      >
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 버튼 그룹 */}
+            <div className="flex flex-col gap-3">
+              <button
+                className="w-full h-12 rounded-xl font-semibold text-base text-white transition-all duration-200 hover:opacity-90 active:opacity-80 shadow-sm hover:shadow-md"
+                style={{ backgroundColor: 'rgba(255, 105, 147, 1)' }}
+                onClick={() => {
+                  navigate('/apply', { state: { bouquetId: selectedBouquet.id } })
+                  setModalOpen(false)
+                }}
+              >
+                적용하기
+              </button>
+              <Button
+                variant="outline"
+                className="w-full h-12 text-base font-semibold"
+                onClick={() => {
+                  navigate(`/bouquets/${selectedBouquet.id}`)
+                  setModalOpen(false)
+                }}
+              >
+                상세보기
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </>
   )
 }

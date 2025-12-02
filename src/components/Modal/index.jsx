@@ -14,8 +14,10 @@ export default function Modal({ open, onClose, children }) {
   return (
     <div className="fixed inset-0 z-50">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="absolute inset-x-0 bottom-0 md:inset-0 md:flex md:items-center md:justify-center">
-        <div className="bg-white w-full md:w-[720px] rounded-t-2xl md:rounded-2xl shadow-xl md:mx-4">
+      <div className="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
+        <div 
+          className="bg-white w-full max-w-sm rounded-2xl shadow-xl relative z-10 pointer-events-auto"
+        >
           {children}
         </div>
       </div>

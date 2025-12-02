@@ -1,16 +1,16 @@
 // Tailwind styles are applied via global index.css
 import React from 'react'
-import { BrowserRouter, useLocation, useNavigate } from 'react-router-dom'
+import { BrowserRouter, useLocation } from 'react-router-dom'
 import Header from './components/Header'
 import Footer from './components/Footer'
 import AppRouter from './routes/AppRouter'
 
 function Layout() {
   const location = useLocation()
-  const navigate = useNavigate()
   const hideHeader =
     /^\/(my|applied|others)\/\d+/.test(location.pathname) ||
     /^\/bouquets\/\d+$/.test(location.pathname) ||
+    location.pathname === '/bouquets' ||
     location.pathname === '/mypage' ||
     location.pathname === '/login' ||
     location.pathname.startsWith('/auth/') ||
@@ -20,14 +20,9 @@ function Layout() {
     location.pathname === '/others/list' ||
     location.pathname === '/recommendations' ||
     location.pathname === '/recommend' ||
-    location.pathname === '/result'
-  const clearToken = () => {
-    try {
-      localStorage.removeItem('accessToken')
-    } finally {
-      navigate('/login', { replace: true })
-    }
-  }
+    location.pathname === '/result' ||
+    location.pathname === '/apply' ||
+    location.pathname === '/apply/result'
   return (
     <div className="min-h-full flex flex-col items-center">
       <div className="w-full max-w-md mx-auto">
@@ -35,16 +30,6 @@ function Layout() {
         <AppRouter />
         <Footer />
       </div>
-      <button
-        type="button"
-        onClick={clearToken}
-        className="fixed right-4 bottom-5 z-50 px-7 py-3 rounded-xl text-sm font-bold bg-red-600 text-white shadow-lg ring-2 ring-red-300/60 hover:bg-red-700 hover:shadow-xl transition-all"
-        title="테스트용: 토큰 삭제"
-      >
-        카카오 토큰 삭제
-        <br></br>
-        개발용
-      </button>
     </div>
   )
 }

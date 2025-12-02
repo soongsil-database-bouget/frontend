@@ -10,8 +10,11 @@ export async function loginWithKakao(payload) {
 export const login = loginWithKakao
 
 // YAML: POST /auth/logout (204 No Content expected)
+// security: bearerAuth 필요
 export async function logout() {
   await api.post('/auth/logout')
+  // 로그아웃 성공 시 토큰 삭제
+  localStorage.removeItem('accessToken')
 }
 
 // YAML: GET /users/me

@@ -2,55 +2,84 @@ import React, { useEffect, useMemo, useState } from 'react'
 import BouquetList from '../components/BouquetList'
 import { getBouquets } from '../api/bouquet'
 import { extractCategoryTags, RAW_TO_KO_LABEL } from '../utils/tagLabels'
+import BackBar from '../components/BackBar'
 
 export default function Bouquets() {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [showFilterSection, setShowFilterSection] = useState(false)
 
   // Filters
   const [season, setSeason] = useState('')
-  const [dressMood, setDressMood] = useState('')
-  const [weddingColor, setWeddingColor] = useState('')
-  const [bouquetAtmosphere, setBouquetAtmosphere] = useState('')
+  const [priceRange, setPriceRange] = useState('')
+  const [usage, setUsage] = useState('')
 
-  const SEASONS = ['SPRING', 'SUMMER', 'FALL', 'WINTER'].map(v => ({ value: v, label: RAW_TO_KO_LABEL[v] }))
-  const DRESS_MOODS = ['BOHEMIAN', 'LACE', 'SIMPLE', 'LUXURY'].map(v => ({ value: v, label: RAW_TO_KO_LABEL[v] }))
-  const WEDDING_COLORS = ['CLASSIC', 'PASTEL', 'NEUTRAL', 'VIVID'].map(v => ({ value: v, label: RAW_TO_KO_LABEL[v] }))
-  const BOUQUET_ATMOSPHERES = ['ROMANTIC_GARDEN', 'CLASSIC_ELEGANCE', 'MODERN_MINIMAL', 'NATURAL_BOHEMIAN'].map(v => ({ value: v, label: RAW_TO_KO_LABEL[v] }))
+  const SEASONS = [
+    { value: '', label: '전체' },
+    { value: 'SPRING', label: '봄' },
+    { value: 'SUMMER', label: '여름' },
+    { value: 'FALL', label: '가을' },
+    { value: 'WINTER', label: '겨울' }
+  ]
+
+  const PRICE_RANGES = [
+    { value: '', label: '전체' },
+    { value: '100000', label: '10만원대' },
+    { value: '200000', label: '20만원대' },
+    { value: '300000', label: '30만원~' }
+  ]
+
+  const USAGES = [
+    { value: '', label: '전체' },
+    { value: 'WEDDING_PHOTO', label: '촬영용' },
+    { value: 'WEDDING_CEREMONY', label: '예식용' }
+  ]
 
   async function load() {
     setLoading(true)
     setError(null)
     try {
-      // Server-side filters (Prism may ignore; we also filter client-side below)
+      // Server-side filters
       const params = {
         page: 1,
         size: 30,
         ...(season ? { season } : {}),
-        ...(dressMood ? { dress_mood: dressMood } : {}),
-        ...(weddingColor ? { wedding_color: weddingColor } : {}),
-        ...(bouquetAtmosphere ? { bouquet_atmosphere: bouquetAtmosphere } : {}),
+        ...(usage ? { usage } : {}),
       }
       const res = await getBouquets(params)
       const list = res?.bouquets ?? []
 
-      // Client-side fallback filter using categories[]
+      // Client-side filter for price range
       const filtered = list.filter((b) => {
         const cats = b.categories || []
         const matchSeason = !season || cats.some((c) => c.season === season)
-        const matchDress = !dressMood || cats.some((c) => c.dressMood === dressMood)
-        const matchColor = !weddingColor || cats.some((c) => c.weddingColor === weddingColor)
-        const matchAtmos = !bouquetAtmosphere || cats.some((c) => c.bouquetAtmosphere === bouquetAtmosphere)
-        return matchSeason && matchDress && matchColor && matchAtmos
+        const matchUsage = !usage || cats.some((c) => c.usage === usage)
+        
+        // Price range filter
+        let matchPrice = true
+        if (priceRange) {
+          const price = b.price || 0
+          if (priceRange === '100000') {
+            matchPrice = price >= 100000 && price < 200000
+          } else if (priceRange === '200000') {
+            matchPrice = price >= 200000 && price < 300000
+          } else if (priceRange === '300000') {
+            matchPrice = price >= 300000
+          }
+        }
+        
+        return matchSeason && matchUsage && matchPrice
       })
 
       const mapped = filtered.map((b) => {
-        const displayTags = extractCategoryTags(b.categories)
+        const displayTags = extractCategoryTags(b.categories || [])
         return {
         id: b.id,
         imageUrl: b.imageUrl,
         title: b.name,
+        price: b.price,
+        vendor: b.store ? { name: b.store.storeName } : undefined,
         tags: displayTags,
       }
       })
@@ -71,16 +100,8 @@ export default function Bouquets() {
       cancelled = true
     }
   // re-load when filters change
-  }, [season, dressMood, weddingColor, bouquetAtmosphere])
+  }, [season, priceRange, usage])
 
-  const activeFilters = useMemo(() => {
-    const arr = []
-    if (season) arr.push(RAW_TO_KO_LABEL[season])
-    if (dressMood) arr.push(RAW_TO_KO_LABEL[dressMood])
-    if (weddingColor) arr.push(RAW_TO_KO_LABEL[weddingColor])
-    if (bouquetAtmosphere) arr.push(RAW_TO_KO_LABEL[bouquetAtmosphere])
-    return arr
-  }, [season, dressMood, weddingColor, bouquetAtmosphere])
 
   const body = useMemo(() => {
     if (loading) {
@@ -104,59 +125,111 @@ export default function Bouquets() {
   }, [loading, error, items])
 
   return (
-    <div className="py-10">
-      <div className="max-w-screen-2xl mx-auto px-6">
-        <div className="mb-5">
-          <h1 className="m-0 text-2xl font-extrabold">전체 부케</h1>
-          <p className="m-0 mt-2 text-gray-600">필터를 선택해 원하는 부케를 찾아보세요.</p>
+    <div className="min-h-screen bg-white">
+      {/* 상단 네비게이션 바 */}
+      <BackBar title="전체 부케" />
+
+      {/* 메인 콘텐츠 */}
+      <div className="max-w-md mx-auto px-4 py-4">
+        {/* 서브 헤더: 총 개수 + 필터 버튼 */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="text-sm text-black">
+            총 <span style={{ color: 'rgba(255, 105, 147, 1)' }}>{items.length}</span>개
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowFilterSection(!showFilterSection)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm text-black hover:bg-gray-50 transition-colors"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M3 6h18M7 12h10M11 18h2" />
+            </svg>
+            필터
+          </button>
         </div>
 
-        {/* Filters (not sticky) */}
+        {/* 필터 섹션 */}
+        {showFilterSection && (
+          <div 
+            className="mb-4 p-6"
+            style={{ backgroundColor: 'rgba(255, 244, 246, 1)' }}
+          >
+            {/* 계절 */}
         <div className="mb-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <select className="h-11 px-3 rounded-xl border border-gray-300 bg-white shadow-sm hover:border-gray-400"
-                value={season} onChange={(e) => setSeason(e.target.value)}>
-                <option value="">계절감(전체)</option>
-                {SEASONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-
-              <select className="h-11 px-3 rounded-xl border border-gray-300 bg-white shadow-sm hover:border-gray-400"
-                value={dressMood} onChange={(e) => setDressMood(e.target.value)}>
-                <option value="">드레스 무드(전체)</option>
-                {DRESS_MOODS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-
-              <select className="h-11 px-3 rounded-xl border border-gray-300 bg-white shadow-sm hover:border-gray-400"
-                value={weddingColor} onChange={(e) => setWeddingColor(e.target.value)}>
-                <option value="">전체 웨딩 색감(전체)</option>
-                {WEDDING_COLORS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-
-              <select className="h-11 px-3 rounded-xl border border-gray-300 bg-white shadow-sm hover:border-gray-400"
-                value={bouquetAtmosphere} onChange={(e) => setBouquetAtmosphere(e.target.value)}>
-                <option value="">부케 무드(전체)</option>
-                {BOUQUET_ATMOSPHERES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
+              <h3 className="text-base font-bold text-black mb-3">계절</h3>
+              <div className="flex flex-wrap gap-2">
+                {SEASONS.map((option) => {
+                  const isSelected = season === option.value
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setSeason(option.value)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        isSelected
+                          ? 'text-white'
+                          : 'bg-white border border-gray-300 text-gray-700'
+                      }`}
+                      style={isSelected ? { backgroundColor: 'rgba(255, 105, 147, 1)' } : {}}
+                    >
+                      {option.label}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <div className="text-sm text-gray-600 mr-1">총 {items.length}개</div>
-            {activeFilters.map((label, idx) => (
-              <span key={idx} className="inline-flex items-center px-2.5 py-1 rounded-full text-xs bg-gray-100 text-gray-700 border border-gray-200">
-                {label}
-              </span>
-            ))}
-            {(season || dressMood || weddingColor || bouquetAtmosphere) && (
+            {/* 가격대 */}
+            <div className="mb-6">
+              <h3 className="text-base font-bold text-black mb-3">가격대</h3>
+              <div className="flex flex-wrap gap-2">
+                {PRICE_RANGES.map((option) => {
+                  const isSelected = priceRange === option.value
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setPriceRange(option.value)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        isSelected
+                          ? 'text-white'
+                          : 'bg-white border border-gray-300 text-gray-700'
+                      }`}
+                      style={isSelected ? { backgroundColor: 'rgba(255, 105, 147, 1)' } : {}}
+                    >
+                      {option.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* 사용 용도 */}
+            <div className="mb-4">
+              <h3 className="text-base font-bold text-black mb-3">사용 용도</h3>
+              <div className="flex flex-wrap gap-2">
+                {USAGES.map((option) => {
+                  const isSelected = usage === option.value
+                  return (
               <button
+                      key={option.value}
                 type="button"
-                onClick={() => { setSeason(''); setDressMood(''); setWeddingColor(''); setBouquetAtmosphere('') }}
-                className="ml-auto h-8 px-3 rounded-lg text-sm font-semibold border border-gray-300 text-gray-700 bg-white hover:bg-gray-50"
+                      onClick={() => setUsage(option.value)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        isSelected
+                          ? 'text-white'
+                          : 'bg-white border border-gray-300 text-gray-700'
+                      }`}
+                      style={isSelected ? { backgroundColor: 'rgba(255, 105, 147, 1)' } : {}}
               >
-                초기화
+                      {option.label}
               </button>
-            )}
+                  )
+                })}
+              </div>
+            </div>
           </div>
-        </div>
+        )}
 
         {body}
       </div>

@@ -11,6 +11,7 @@ export default function BouquetList({ items = [], itemLinkBase = '/others' }) {
           title={item.title}
           tags={item.tags}
           price={item.price}
+          vendor={item.vendor}
           to={`${itemLinkBase}/${item.id}`}
         />
       ))}

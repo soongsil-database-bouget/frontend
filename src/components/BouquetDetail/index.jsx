@@ -1,14 +1,12 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Modal from '../Modal'
-import UploadDropzone from '../UploadDropzone'
 import Button from '../Button'
 import { addRecentlyViewed } from '../../utils/recentlyViewed'
 
 export default function BouquetDetail({ item, mode = 'others' }) {
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
-  const [userImage, setUserImage] = useState(null)
 
   useEffect(() => {
     addRecentlyViewed({ imageUrl: item.imageUrl, title: item.title })
@@ -85,8 +83,8 @@ export default function BouquetDetail({ item, mode = 'others' }) {
 
           {/* 적용하기 버튼 */}
           <button
-            onClick={() => setOpen(true)}
-            className="w-full py-4 rounded-xl font-semibold text-base text-white transition-all duration-200 hover:opacity-90 active:opacity-80 shadow-sm hover:shadow-md"
+            disabled
+            className="w-full py-4 rounded-xl font-semibold text-base text-white transition-all duration-200 shadow-sm opacity-50 cursor-not-allowed"
             style={{ backgroundColor: 'rgba(255, 105, 147, 1)' }}
           >
             적용하기
@@ -95,35 +93,61 @@ export default function BouquetDetail({ item, mode = 'others' }) {
       </div>
 
       <Modal open={open} onClose={() => setOpen(false)}>
-        <div className="p-5">
-          <div className="flex items-center gap-3">
-            <div className="flex-1 rounded-xl border border-gray-200 overflow-hidden bg-gray-50">
-              <img src={item.imageUrl} alt={item.title} className="w-full h-40 object-cover" />
+        <div className="p-6">
+          {/* 헤더 */}
+          <div className="mb-5 text-center">
+            <h2 className="text-xl font-bold text-gray-900 mb-1.5">부케 선택</h2>
+            <p className="text-sm text-gray-500">원하는 작업을 선택해주세요</p>
+          </div>
+          
+          {/* 부케 카드 */}
+          <div className="mb-6 rounded-2xl overflow-hidden bg-white border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+            <div className="relative aspect-square bg-gradient-to-br from-pink-50 to-purple-50">
+              <img
+                src={item.imageUrl}
+                alt={item.title}
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
             </div>
-            <div className="text-2xl text-gray-400">+</div>
-            <div className="flex-1 rounded-xl border border-dashed border-gray-300 bg-gray-50 grid place-items-center h-40 overflow-hidden">
-              {userImage ? (
-                <img src={userImage} alt="내 사진" className="w-full h-full object-cover rounded-lg" />
-              ) : (
-                <div className="text-gray-400 text-sm">내 사진</div>
+            <div className="p-4">
+              <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-1">
+                {item.title}
+              </h3>
+              {item.tags && item.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {item.tags.slice(0, 3).map((tag, idx) => (
+                    <span
+                      key={idx}
+                      className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
+                      style={{
+                        background: 'rgba(255, 244, 246, 1)',
+                        color: 'rgba(255, 105, 147, 1)',
+                      }}
+                    >
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
               )}
             </div>
           </div>
 
-          <div className="mt-5">
-            <UploadDropzone onFileSelected={(dataUrl) => setUserImage(dataUrl)} />
-          </div>
-
-          <div className="mt-5 flex justify-end gap-2">
-            <Button variant="outline" className="h-10 px-4" onClick={() => setOpen(false)}>닫기</Button>
-            <Button
-              className="h-10 px-5 disabled:opacity-50"
-              disabled={!userImage}
-              onClick={() => {
-                navigate('/apply/result', { state: { userImage, bouquetImage: item.imageUrl } })
-              }}
+          {/* 버튼 그룹 */}
+          <div className="flex flex-col gap-3">
+            <button
+              className="w-full h-12 rounded-xl font-semibold text-base text-white transition-all duration-200 shadow-sm opacity-50 cursor-not-allowed"
+              style={{ backgroundColor: 'rgba(255, 105, 147, 1)' }}
+              disabled
             >
               적용하기
+            </button>
+            <Button
+              variant="outline"
+              className="w-full h-12 text-base font-semibold"
+              onClick={() => setOpen(false)}
+            >
+              닫기
             </Button>
           </div>
         </div>

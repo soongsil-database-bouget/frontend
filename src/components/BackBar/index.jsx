@@ -5,21 +5,20 @@ export default function BackBar({ title }) {
   const navigate = useNavigate()
   return (
     <div className="sticky top-0 z-20 bg-white border-b border-gray-200">
-      <div className="relative h-14 max-w-screen-2xl mx-auto flex items-center gap-2 px-2">
+      <div className="relative h-14 max-w-screen-2xl mx-auto flex items-center gap-2 px-4">
         <button
           type="button"
           aria-label="뒤로가기"
           onClick={() => navigate(-1)}
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700"
+          className="inline-flex items-center justify-center w-8 h-8 text-gray-400 hover:text-gray-600"
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
-            <path fill="currentColor" d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M15 18l-6-6 6-6"/>
           </svg>
-          <span className="text-sm font-medium">뒤로</span>
         </button>
         {title && (
           <div className="absolute inset-x-0 text-center pointer-events-none">
-            <div className="text-base font-extrabold text-gray-900">{title}</div>
+            <div className="text-base font-bold text-black">{title}</div>
           </div>
         )}
       </div>

@@ -183,8 +183,11 @@ export default function Result() {
             <div className="space-y-3 pt-2 pb-6">
               <button
                 onClick={() => navigate('/recommendations')}
-                className="w-full py-3.5 rounded-xl font-semibold text-sm text-white transition-all duration-200 hover:opacity-90 active:opacity-80 shadow-sm hover:shadow-md"
-                style={{ backgroundColor: 'rgba(255, 105, 147, 1)' }}
+                className="w-full py-3.5 rounded-xl font-semibold text-sm transition-all duration-200 hover:opacity-90 active:opacity-80 bg-white border"
+                style={{ 
+                  borderColor: 'rgba(255, 192, 203, 0.5)',
+                  color: 'rgba(255, 105, 147, 1)'
+                }}
               >
                 추천받은 부케 목록 보러가기
               </button>
