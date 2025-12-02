@@ -92,10 +92,10 @@ export default function KakaoCallback() {
         if (!response || typeof response !== 'object') {
           setError('서버 응답이 올바르지 않습니다.')
           setTimeout(() => {
-            navigate('/login', { replace: true })
+      navigate('/login', { replace: true })
           }, 2000)
-          return
-        }
+      return
+    }
 
         // userId가 있는지 확인
         if (!response.userId) {
@@ -117,7 +117,7 @@ export default function KakaoCallback() {
           }, 2000)
           return
         }
-        navigate('/', { replace: true })
+    navigate('/', { replace: true })
       })
       .catch((err) => {
         // 에러 타입별 메시지 설정

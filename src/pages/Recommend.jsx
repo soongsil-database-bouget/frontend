@@ -12,7 +12,7 @@ function OptionButton({ option, selected, onSelect }) {
       type="button"
       onClick={() => onSelect(option.value)}
       className={`
-        px-4 py-3 rounded-xl font-medium text-sm transition-all duration-200
+        px-4 py-3 rounded-xl font-semibold text-sm transition-all duration-200
         ${isSelected 
           ? 'text-gray-700 border-2' 
           : 'bg-white text-gray-700 border border-gray-200 hover:border-gray-300 hover:bg-gray-50'

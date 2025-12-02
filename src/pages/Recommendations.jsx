@@ -38,6 +38,7 @@ export default function Recommendations() {
           const bouquet = item.bouquet || {}
           return {
             id: item.id || bouquet.id,
+            bouquetId: item.bouquetId || bouquet.id, // 부케 상세 조회용 bouquetId
             imageUrl: bouquet.imageUrl,
             title: bouquet.name || '부케',
             description: bouquet.description || '',
@@ -250,7 +251,7 @@ export default function Recommendations() {
                                       className="text-xs text-gray-400 font-medium"
                                     >
                                       #{tag}
-                                    </span>
+                        </span>
                                   ))}
                                 </div>
                               )}
@@ -377,7 +378,7 @@ export default function Recommendations() {
                 className="w-full h-12 rounded-xl font-semibold text-base text-white transition-all duration-200 hover:opacity-90 active:opacity-80 shadow-sm hover:shadow-md"
                 style={{ backgroundColor: 'rgba(255, 105, 147, 1)' }}
                 onClick={() => {
-                  navigate('/apply', { state: { bouquetId: selectedBouquet.id } })
+                  navigate('/apply', { state: { bouquetId: selectedBouquet.bouquetId } })
                   setModalOpen(false)
                 }}
               >
@@ -387,7 +388,7 @@ export default function Recommendations() {
                 variant="outline"
                 className="w-full h-12 text-base font-semibold"
                 onClick={() => {
-                  navigate(`/bouquets/${selectedBouquet.id}`)
+                  navigate(`/bouquets/${selectedBouquet.bouquetId}`)
                   setModalOpen(false)
                 }}
               >
