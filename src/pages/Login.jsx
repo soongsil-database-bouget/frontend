@@ -32,7 +32,7 @@ export default function Login() {
     <div className="min-h-screen grid place-items-center bg-white">
       <div className="w-full max-w-sm mx-auto px-6">
         <div className="text-center mb-8">
-          <div className="text-pink-500 font-black text-3xl">bouget</div>
+          <div className="text-pink-500 font-black text-3xl">Bloomfit</div>
           <p className="mt-2 text-gray-600">부케 추천을 받으려면 카카오로 로그인하세요</p>
         </div>
         <button

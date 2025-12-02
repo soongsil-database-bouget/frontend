@@ -114,25 +114,28 @@ export default function Main() {
   }, [])
   return (
     <div className="min-h-full bg-gray-50">
-      <section className="relative min-h-[400px] grid items-center bg-black">
+      <section className="relative min-h-[450px] grid items-center bg-black overflow-hidden">
         <img
           className="absolute inset-0 w-full h-full object-cover"
           src="/웨딩배너3.avif"
           alt="웨딩 배너"
         />
-        <div className="absolute inset-0 bg-black/40" />
+        <div className="absolute inset-0 bg-black/25" />
+        
+        {/* 히어로 콘텐츠 */}
         <div className="relative text-white text-center max-w-md mx-auto px-4 py-16 z-10">
-          <h1 className="m-0 text-3xl md:text-4xl font-bold leading-snug mb-4">
-            어떤 부케가 잘 <span className="text-[#EB427B]">어울릴지</span>
+          <h1 className="m-0 text-3xl md:text-4xl font-black leading-tight mb-3 text-white drop-shadow-lg">
+            어떤 부케가 잘 어울릴지
             <br />
             고민이신가요?
           </h1>
-          <p className="mt-2 text-gray-400 font-medium mb-6">
+          <p className="mt-3 text-white/95 text-sm font-medium mb-6 drop-shadow-md">
             눌러서 부케 추천받기
           </p>
           <button
             onClick={() => navigate('/recommend')}
-            className="inline-flex items-center justify-center px-6 py-3 bg-black hover:bg-gray-800 text-white font-semibold rounded-lg transition-colors"
+            className="inline-flex items-center justify-center px-6 py-3 text-white font-semibold rounded-xl transition-all duration-200 active:opacity-80 shadow-md hover:shadow-lg"
+            style={{ backgroundColor: 'rgba(255, 105, 147, 1)' }}
           >
             부케 추천받기
           </button>
@@ -249,6 +252,7 @@ export default function Main() {
                           onClick={() => {
                             setSelectedBouquet({
                               id: b.id,
+                              bouquetId: it.bouquetId || b.id, // 부케 상세 조회용 bouquetId
                               imageUrl: b.imageUrl,
                               title: b.name,
                               description: b.description || '',
@@ -277,6 +281,16 @@ export default function Main() {
           </div>
           {loadingApplied ? (
             <div className="py-12 text-center text-gray-500">불러오는 중…</div>
+          ) : appliedPreview.length === 0 ? (
+            <div className="py-12 text-center">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-400">
+                  <path d="M20 7h-4m-2-2v4m2-2l-3 3m3-3l3 3M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4m6 0h4a2 2 0 0 1 2 2v4m0 6v4a2 2 0 0 1-2 2h-4m-6 0H5a2 2 0 0 1-2-2v-4m0-6V5a2 2 0 0 1 2-2h4" />
+                </svg>
+              </div>
+              <p className="text-gray-500 text-sm">적용해본 부케가 없습니다</p>
+              <p className="text-gray-400 text-xs mt-1">부케를 적용해보시면 여기에 표시됩니다</p>
+            </div>
           ) : (
             <div className="grid grid-cols-2 gap-4">
               {appliedPreview.map(item => (
@@ -372,7 +386,7 @@ export default function Main() {
                 className="w-full h-12 rounded-xl font-semibold text-base text-white transition-all duration-200 hover:opacity-90 active:opacity-80 shadow-sm hover:shadow-md"
                 style={{ backgroundColor: 'rgba(255, 105, 147, 1)' }}
                 onClick={() => {
-                  navigate('/apply', { state: { bouquetId: selectedBouquet.id } })
+                  navigate('/apply', { state: { bouquetId: selectedBouquet.bouquetId } })
                   setModalOpen(false)
                 }}
               >
@@ -382,7 +396,7 @@ export default function Main() {
                 variant="outline"
                 className="w-full h-12 text-base font-semibold"
                 onClick={() => {
-                  navigate(`/bouquets/${selectedBouquet.id}`)
+                  navigate(`/bouquets/${selectedBouquet.bouquetId}`)
                   setModalOpen(false)
                 }}
               >

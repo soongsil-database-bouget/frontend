@@ -86,9 +86,10 @@ export default function MyPage() {
                 className="w-16 h-16 rounded-full ring-2 ring-pink-100 object-cover"
               />
             ) : (
-              <div className="w-16 h-16 rounded-full bg-white/70 ring-2 ring-pink-100 grid place-items-center text-pink-500">
-                <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true">
-                  <path fill="currentColor" d="M12 12c2.761 0 5-2.462 5-5.5S14.761 1 12 1 7 3.462 7 6.5 9.239 12 12 12Zm0 2c-4.418 0-8 2.91-8 6.5 0 .828.672 1.5 1.5 1.5h13c.828 0 1.5-.672 1.5-1.5 0-3.59-3.582-6.5-8-6.5Z"/>
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-pink-100 to-rose-200 ring-2 ring-pink-100 grid place-items-center text-pink-500">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
                 </svg>
               </div>
             )}
@@ -106,7 +107,7 @@ export default function MyPage() {
                 </>
               )}
               <div className="text-gray-600 mt-1">
-                <span className="text-pink-500 font-semibold">bouget</span>과 함께하는 특별한 순간
+                <span className="text-pink-500 font-semibold">Bloomfit</span>과 함께하는 특별한 순간
               </div>
             </div>
           </div>

@@ -1,15 +1,18 @@
 [build]
-  command = "npm run build"
   publish = "dist"
 
-# SPA routing: send all requests to index.html
+# API 프록시: /api/* 요청을 백엔드 서버로 전달
+[[redirects]]
+  from = "/api/*"
+  to = "http://52.78.57.66:8080/:splat"
+  status = 200
+  force = true
+
+# SPA routing: send all requests to index.html (API 제외)
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
 
-[context.production.environment]
-  # Kakao OAuth redirect (production)
-  VITE_KAKAO_REDIRECT_URI = "https://buquetin.netlify.app/auth/kakao/callback"
 
 
