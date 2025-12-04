@@ -53,7 +53,7 @@ export default function Result() {
         id: b.id,
         imageUrl: getProxiedImageUrl(b.imageUrl),
         title: b.name,
-        description: b.description || '',
+        reason: b.reason || '',
         tags: extractCategoryTags(b.categories),
       }
     })
@@ -150,11 +150,11 @@ export default function Result() {
                   <h2 className="text-lg font-bold text-gray-900 mb-2.5 leading-tight">
                     {currentItem.title}
                   </h2>
-                  {currentItem.description && (
+                  {currentItem.reason && (
                     <div className="space-y-1">
-                      <p className="text-sm text-gray-500 leading-relaxed">{currentItem.description.split('\n')[0] || currentItem.description}</p>
-                      {currentItem.description.split('\n')[1] && (
-                        <p className="text-sm text-gray-500 leading-relaxed">{currentItem.description.split('\n')[1]}</p>
+                      <p className="text-sm text-gray-500 leading-relaxed">{currentItem.reason.split('\n')[0] || currentItem.reason}</p>
+                      {currentItem.reason.split('\n')[1] && (
+                        <p className="text-sm text-gray-500 leading-relaxed">{currentItem.reason.split('\n')[1]}</p>
                       )}
                     </div>
                   )}
