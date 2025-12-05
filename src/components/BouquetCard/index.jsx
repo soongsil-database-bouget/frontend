@@ -10,7 +10,12 @@ export default function BouquetCard({ imageUrl, title, tags = [], price, vendor,
   const CardInner = (
     <>
       <div className="aspect-square overflow-hidden relative bg-gray-100 rounded-[12px]">
-        <img className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-200 rounded-[12px]" src={imageUrl} alt={title} />
+        <img 
+          className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-200 rounded-[12px]" 
+          src={imageUrl} 
+          alt={title}
+          loading="lazy"
+        />
       </div>
       <div className="bg-white pt-3 space-y-1">
         <h3 className="m-0 font-bold text-black text-sm leading-tight line-clamp-2">{title}</h3>
