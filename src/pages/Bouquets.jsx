@@ -1,19 +1,18 @@
-import React, { useEffect, useMemo, useState, useRef } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import BouquetList from '../components/BouquetList'
 import { getBouquets } from '../api/bouquet'
-import { extractCategoryTags, RAW_TO_KO_LABEL } from '../utils/tagLabels'
+import { extractCategoryTags } from '../utils/tagLabels'
 import { getProxiedImageUrl } from '../utils/imageUrl'
 import BackBar from '../components/BackBar'
 
+const CACHE_KEY = 'bouquets_all_data'
+const CACHE_EXPIRY = 30 * 60 * 1000 // 30분
+
 export default function Bouquets() {
-  const [items, setItems] = useState([])
+  const [allBouquets, setAllBouquets] = useState([]) // 전체 부케 데이터 (원본)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [showFilterSection, setShowFilterSection] = useState(false)
-  const [page, setPage] = useState(1)
-  const [hasMore, setHasMore] = useState(true)
-  const [totalCount, setTotalCount] = useState(0)
-  const sentinelRef = useRef(null)
 
   // Filters
   const [season, setSeason] = useState('')
@@ -41,125 +40,134 @@ export default function Bouquets() {
     { value: 'WEDDING_CEREMONY', label: '예식용' }
   ]
 
-  // 가격대 필터링 함수 (원본 부케 데이터용)
-  const filterByPriceRange = (list) => {
-    if (!priceRange) return list
-    return list.filter((b) => {
-      const price = b.price || 0
-      if (priceRange === '100000') {
-        return price >= 100000 && price < 200000
-      } else if (priceRange === '200000') {
-        return price >= 200000 && price < 300000
-      } else if (priceRange === '300000') {
-        return price >= 300000
+  // 전체 부케 데이터 로드 (병렬 요청 + 캐싱)
+  const loadAllBouquets = async () => {
+    // 캐시 확인
+    try {
+      const cached = sessionStorage.getItem(CACHE_KEY)
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached)
+        const now = Date.now()
+        if (now - timestamp < CACHE_EXPIRY) {
+          setAllBouquets(data)
+          setLoading(false)
+          return
+        }
       }
-      return true
-    })
-  }
+    } catch (e) {
+      console.error('캐시 읽기 실패:', e)
+    }
 
-  // 가격대 필터링 함수 (매핑된 아이템용)
-  const filterMappedItemsByPriceRange = (mappedItems) => {
-    if (!priceRange) return mappedItems
-    return mappedItems.filter((item) => {
-      const price = item.price || 0
-      if (priceRange === '100000') {
-        return price >= 100000 && price < 200000
-      } else if (priceRange === '200000') {
-        return price >= 200000 && price < 300000
-      } else if (priceRange === '300000') {
-        return price >= 300000
-      }
-      return true
-    })
-  }
-
-  async function loadMore(currentPage = null) {
-    const pageToLoad = currentPage !== null ? currentPage : page
-    if (loading || !hasMore) return
     setLoading(true)
     setError(null)
+
     try {
-      // Server-side filters
-      const params = {
-        page: pageToLoad,
-        size: 12,
-        ...(season ? { season } : {}),
-        ...(usage ? { usage } : {}),
+      // 전체 부케를 병렬로 가져오기 (55개를 12개씩 나누면 약 5페이지)
+      // 또는 size를 크게 설정하여 한 번에 가져오기
+      // 먼저 전체 개수 확인
+      const firstPage = await getBouquets({ page: 1, size: 12 })
+      const totalCount = firstPage?.totalCount || 0
+      
+      if (totalCount === 0) {
+        setAllBouquets([])
+        setLoading(false)
+        return
       }
-      const res = await getBouquets(params)
-      const list = res?.bouquets ?? []
-      const total = res?.totalCount ?? 0
 
-      // 가격대 필터링 (클라이언트 사이드)
-      const filtered = filterByPriceRange(list)
+      // 전체 페이지 수 계산
+      const pageSize = 12
+      const totalPages = Math.ceil(totalCount / pageSize)
+      
+      // 모든 페이지를 병렬로 요청
+      const pagePromises = []
+      for (let page = 1; page <= totalPages; page++) {
+        pagePromises.push(getBouquets({ page, size: pageSize }))
+      }
 
-      const mapped = filtered.map((b) => {
-        const displayTags = extractCategoryTags(b.categories || [])
-        return {
-          id: b.id,
-          imageUrl: getProxiedImageUrl(b.imageUrl),
-          title: b.name,
-          price: b.price,
-          vendor: b.store ? { name: b.store.storeName } : undefined,
-          tags: displayTags,
+      const responses = await Promise.all(pagePromises)
+      
+      // 모든 부케 데이터 합치기
+      const allBouquetsData = []
+      responses.forEach((res) => {
+        if (res?.bouquets && Array.isArray(res.bouquets)) {
+          allBouquetsData.push(...res.bouquets)
         }
       })
 
-      if (currentPage === 1 || (currentPage === null && page === 1)) {
-        // 첫 페이지인 경우 교체
-        setItems(mapped)
-      } else {
-        // 다음 페이지인 경우 추가
-        setItems((prev) => [...prev, ...mapped])
+      // 캐시에 저장
+      try {
+        sessionStorage.setItem(CACHE_KEY, JSON.stringify({
+          data: allBouquetsData,
+          timestamp: Date.now()
+        }))
+      } catch (e) {
+        console.error('캐시 저장 실패:', e)
       }
-      
-      setTotalCount(total)
-      
-      // 다음 페이지가 있는지 확인
-      const loaded = pageToLoad * 12
-      setHasMore(loaded < total)
-      if (currentPage === null) {
-        setPage((p) => p + 1)
-      } else {
-        setPage(currentPage + 1)
-      }
+
+      setAllBouquets(allBouquetsData)
     } catch (e) {
-      setError(e)
+      console.error('부케 로드 실패:', e)
+      setError('부케 목록을 불러오지 못했습니다.')
     } finally {
       setLoading(false)
     }
   }
 
-  // 필터 변경 시 데이터 리셋 및 초기 로드 (초기 마운트 시에도 실행됨)
+  // 초기 로드
   useEffect(() => {
-    setItems([])
-    setPage(1)
-    setHasMore(true)
-    setTotalCount(0)
-    loadMore(1)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [season, usage])
+    loadAllBouquets()
+  }, [])
 
-  // 무한 스크롤 감지
-  useEffect(() => {
-    const el = sentinelRef.current
-    if (!el) return
-    const io = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting && hasMore && !loading) {
-          loadMore()
-        }
-      })
-    }, { rootMargin: '200px' })
-    io.observe(el)
-    return () => io.disconnect()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sentinelRef.current, hasMore, loading])
-
-  // 가격대 필터 변경 시 클라이언트 사이드 필터링만 적용
+  // 클라이언트 사이드 필터링 (season, usage, priceRange 모두)
   const filteredItems = useMemo(() => {
-    return filterMappedItemsByPriceRange(items)
-  }, [items, priceRange])
+    if (allBouquets.length === 0) return []
+
+    let filtered = [...allBouquets]
+
+    // season 필터링
+    if (season) {
+      filtered = filtered.filter((b) => {
+        const categories = b.categories || []
+        return categories.some((cat) => cat.season === season)
+      })
+    }
+
+    // usage 필터링
+    if (usage) {
+      filtered = filtered.filter((b) => {
+        const categories = b.categories || []
+        return categories.some((cat) => cat.usage === usage)
+      })
+    }
+
+    // priceRange 필터링
+    if (priceRange) {
+      filtered = filtered.filter((b) => {
+        const price = b.price || 0
+        if (priceRange === '100000') {
+          return price >= 100000 && price < 200000
+        } else if (priceRange === '200000') {
+          return price >= 200000 && price < 300000
+        } else if (priceRange === '300000') {
+          return price >= 300000
+        }
+        return true
+      })
+    }
+
+    // 매핑된 아이템으로 변환
+    return filtered.map((b) => {
+      const displayTags = extractCategoryTags(b.categories || [])
+      return {
+        id: b.id,
+        imageUrl: getProxiedImageUrl(b.imageUrl),
+        title: b.name,
+        price: b.price,
+        vendor: b.store ? { name: b.store.storeName } : undefined,
+        tags: displayTags,
+      }
+    })
+  }, [allBouquets, season, usage, priceRange])
 
 
   const body = useMemo(() => {
@@ -170,28 +178,23 @@ export default function Bouquets() {
         </div>
       )
     }
-    if (filteredItems.length === 0 && !loading) {
+    if (loading) {
+      return (
+        <div className="py-16 text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-pink-500 border-t-transparent mb-4"></div>
+          <p className="text-gray-600">부케 목록을 불러오는 중...</p>
+        </div>
+      )
+    }
+    if (filteredItems.length === 0) {
       return (
         <div className="py-16 text-center text-gray-500">표시할 부케가 없습니다.</div>
       )
     }
     return (
-      <>
-        <BouquetList items={filteredItems} itemLinkBase="/bouquets" />
-        {/* 무한 스크롤 감지용 센티널 */}
-        {hasMore && (
-          <div ref={sentinelRef} className="py-8 text-center text-gray-500">
-            {loading && '불러오는 중…'}
-          </div>
-        )}
-        {!hasMore && filteredItems.length > 0 && (
-          <div className="py-8 text-center text-gray-500 text-sm">
-            모든 부케를 불러왔습니다.
-          </div>
-        )}
-      </>
+      <BouquetList items={filteredItems} itemLinkBase="/bouquets" />
     )
-  }, [loading, error, filteredItems, hasMore])
+  }, [loading, error, filteredItems])
 
   return (
     <div className="min-h-screen bg-white">
@@ -204,8 +207,8 @@ export default function Bouquets() {
         <div className="flex items-center justify-between mb-4">
           <div className="text-sm text-black">
             총 <span style={{ color: 'rgba(255, 105, 147, 1)' }}>{filteredItems.length}</span>개
-            {totalCount > 0 && priceRange && (
-              <span className="text-gray-500 ml-1">(전체 {totalCount}개)</span>
+            {(season || usage || priceRange) && allBouquets.length > 0 && (
+              <span className="text-gray-500 ml-1">(전체 {allBouquets.length}개)</span>
             )}
           </div>
           <button
